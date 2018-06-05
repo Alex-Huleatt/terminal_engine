@@ -145,11 +145,14 @@ class DrawController():
         self.to_restore = set()
         return stdscr
 
+    def _draw_posn(self, p):
+        return Pair(int(p.y+.5), int(p.x+.5))
+
     def _draw_char(self, y, x, ch, co=None):
         if co is None:
             co = curses.color_pair(0)
         if y < self.height and y >= 0 and x < self.width and x >= 0 and (y < self.height - 1 or x < self.width - 1):
-            draw_y, draw_x = int(y+.5), int(x+.5)
+            draw_y, draw_x = self._draw_posn(Pair(y,x))
             self.screen.addstr(draw_y, draw_x, ch, co)
 
 
@@ -173,16 +176,18 @@ class DrawController():
     def draw(self, buffered_chars):
         
         for bc in buffered_chars:
-            y,x = bc.pos
-            color, char = bc.color, bc.char
-            self._draw_char(y, x, char, color)
-            
-            p = Pair(int(y+.5), int(x+.5))
-            
-            if p in self.to_restore:
-                self.to_restore.remove(p)
+            if self._draw_posn(bc.pos) in self.visible:
+                y,x = bc.pos
 
-            self.drawn.add(p)
+                color, char = bc.color, bc.char
+                self._draw_char(y, x, char, color)
+                
+                p = Pair(int(y+.5), int(x+.5))
+                
+                if p in self.to_restore:
+                    self.to_restore.remove(p)
+
+                self.drawn.add(p)
 
 
     def render(self):
