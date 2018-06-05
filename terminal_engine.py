@@ -63,6 +63,57 @@ class KeyHandler():
         self.key = key
         self.callback = callback
         
+#everything is in the set, except anything satisfying any of some functions, except any exceptions
+class InclusiveSet(): 
+    def __init__(self):
+        self.plus = set()
+        self.neg_funcs = set() #of functions
+
+    def remove_from_complement(self, e, weak=False):
+        ''' explicitly add an element to the set. If weak is True, will only add to set if it satisfies all constraining functions'''
+        if weak:
+            for f in self.funs:
+                if f(e):
+                    return
+        
+        self.plus.add(e)
+
+    def sub_group(self, f, retroactive=False):
+        ''' Constrains the universe to elements that satisfy f. f should be a function that receives a single element from the universe '''
+        self.neg_funcs.add(f)
+
+        if retroactive:
+            to_sub = set()
+            for e in self.plus:
+                if f(e):
+                    to_sub.add(e)
+            self.plus -= to_sub
+
+    def __contains__(self, e):
+        if e in self.plus:
+            return True
+
+        for f in self.funs:
+            if f(e):
+                return False
+
+        return True
+
+    def __iter__(self, universe=None):
+        if universe is None:
+            for e in self.plus:
+                yield e
+        else:
+            for e in universe:
+                if e in self:
+                    yield e
+
+    def update(self, iterable):
+        for e in iterable:
+            self.remove_from_complement(e)
+
+
+
 #--------------------
 
 class MainController():
@@ -155,7 +206,6 @@ class DrawController():
             draw_y, draw_x = self._draw_posn(Pair(y,x))
             self.screen.addstr(draw_y, draw_x, ch, co)
 
-
     def full_draw(self): #expensive
         for i in range(self.height):
             for j in range(self.width):
@@ -176,7 +226,7 @@ class DrawController():
     def draw(self, buffered_chars):
         
         for bc in buffered_chars:
-            if self._draw_posn(bc.pos) in self.visible:
+            if self._draw_posn(bc.pos) in self.visible: #don't draw things outside fov
                 y,x = bc.pos
 
                 color, char = bc.color, bc.char
