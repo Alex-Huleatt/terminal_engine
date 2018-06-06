@@ -373,7 +373,7 @@ class World():
         snp = defaultdict(list)
         for e in self.entities:
             cpy = e.copy()
-            snp[cpy.get_pos()].append(cpy)
+            snp[cpy.get_pos().rounded()].append(cpy)
 
         return snp
 
@@ -406,6 +406,8 @@ class World():
 
             if not e.is_dead():
                 survived.append(e)
+            else:
+                SharedContext.get_instance().log(str(e)+" has died.")
         self.entities = survived
 
 
@@ -429,7 +431,7 @@ class Entity(object): #base class
     def get_str(self):
         return 'E'
 
-    def get_draw_priority(self):
+    def get_draw_priority(self): #behavior not implemented
         return 0
 
     def get_chars(self):
@@ -446,6 +448,9 @@ class Entity(object): #base class
 
     def set_pos(self, p):
         self.pos = p
+
+    def __str__(self):
+        return '[%s: @%s]'%(type(self), self.get_pos())
 
 class Player(Entity):
 
@@ -465,7 +470,7 @@ class Player(Entity):
         self.base_rof = 30
         self.rof_timer = 0
 
-        self.base_rom = 4
+        self.base_rom = 2
         self.rom_timer = 0
 
     def get_str(self):
@@ -515,6 +520,8 @@ class Spooker(Entity):
         self.base_rom = 4
         self.rom_timer = 0
 
+        self.hp = 100
+
     def get_color_pair(self):
         return 6
 
@@ -523,13 +530,36 @@ class Spooker(Entity):
 
     def update(self):
         ctx = SharedContext.get_instance()
-        if self.get_pos() in ctx.get_visible_posns():
-            pl = ctx.get_player_pos()[0]
+        all_pos = ctx.get_snapshot()
 
-            if pl.get_pos().euclidean(self.get_pos()) < 5:
-                pass
         
 
+        if self.get_pos() in ctx.get_visible_posns():
+            if any([isinstance(p,Fireball) for p in all_pos[self.get_pos()]]):
+                self.hp -= 50
+                if self.hp == 0:
+                   return
+
+            pl = ctx.get_player_pos()[0]
+            
+            pl_pos = pl.get_pos()
+            dis = pl_pos.euclidean(self.get_pos()) 
+            if dis < 5 and dis > 1:
+                min_p = self.get_pos()
+                for n in self.get_pos().get_neighbors():
+                    if n.euclidean(pl_pos) < min_p.euclidean(pl_pos) and len(all_pos[n])==0:
+                        min_p = n
+
+                if self.rom_timer == 0:
+                    self.pos = min_p
+                    self.rom_timer = self.base_rom
+                    return
+
+        self.rom_timer = max(0,self.rom_timer-1)
+
+        
+    def is_dead(self):
+        return self.hp <= 0
 
     def get_str(self):
         return '&'
@@ -545,7 +575,7 @@ class Fireball(Entity):
         return 5
 
     def get_str(self):
-        return 'X'
+        return 'O'
 
     def update(self):
         ny, nx = Pair.get_direction(self.direction)
