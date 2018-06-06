@@ -77,7 +77,7 @@ class DrawController():
         self.drawn = set()
         self.to_restore = set()
 
-        self.default_color = 0
+        self.default_color = 4
 
     def init_screen(self):
         stdscr = curses.initscr()
@@ -89,12 +89,14 @@ class DrawController():
 
         curses.start_color()
         curses.use_default_colors()
-        curses.init_pair(0, curses.COLOR_BLACK, curses.COLOR_BLACK)
-        curses.init_pair(1, curses.COLOR_GREEN, -1)
-        curses.init_pair(2, curses.COLOR_MAGENTA, -1)
-
+        curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
+        curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_WHITE)
+        curses.init_pair(3, curses.COLOR_MAGENTA, curses.COLOR_WHITE)
+        curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_BLACK)
+        curses.init_pair(5, curses.COLOR_YELLOW, curses.COLOR_RED)
         self.screen = stdscr
         self.height, self.width = stdscr.getmaxyx()
+
 
         return stdscr
 
@@ -107,10 +109,9 @@ class DrawController():
     def update(self, modified):
         self.to_restore.update(modified)
 
-    def add_rule(self, rule_id, rule, ch, color=0, modified=None):
+    def add_rule(self, rule_id, rule, ch, color=1, modified=None):
         ''' Adds a rule, if modified is not none it will only update those cells. rule_id must be unique '''
         assert rule_id not in self.rules
-
         self.rules[rule_id] = (rule,ch,color)
         if modified is None:
             for i in range(self.height):
@@ -121,7 +122,7 @@ class DrawController():
         else:
             self.to_restore.update(modified)
 
-    def update_rule(self, rule_id, rule, ch, color=0, modified=None):
+    def update_rule(self, rule_id, rule, ch, color=1, modified=None):
         self.remove_rule(rule_id)
         self.add_rule(rule_id, rule, ch, color=color, modified=modified)
 
@@ -131,7 +132,7 @@ class DrawController():
             self.to_restore.update(self.rule_assignments[rule_id])
             self.rule_assignments.pop(rule_id)
 
-    def _draw_char(self, y, x, ch, co=0):
+    def _draw_char(self, y, x, ch, co):
 
         if y < self.height and y >= 0 and x < self.width and x >= 0 and (y < self.height - 1 or x < self.width - 1):
             draw_y, draw_x = Pair(y,x).rounded()
@@ -155,7 +156,7 @@ class DrawController():
                     self.rule_assignments[k].append(pix)
                     break
             else:
-                self._draw_char(pix.y, pix.x, self.default_char, co=self.default_color)
+                self._draw_char(pix.y, pix.x, self.default_char, self.default_color)
 
         self.to_restore = set()
 
@@ -458,7 +459,7 @@ class Player(Entity):
         return '&'
 
     def get_color_pair(self):
-        return 1
+        return 2
 
     def is_transparent(self):
         return True
@@ -514,7 +515,9 @@ class Fireball(Entity):
         self.direction = direction
         self.speed = .3
         self.outside_vision_count = 0
-
+        
+    def get_color_pair(self):
+        return 5
     def get_str(self):
         return 'X'
 
@@ -544,7 +547,7 @@ class Wall(Entity):
         return False
 
     def get_color_pair(self):
-        return 2
+        return 3
 
     def get_str(self):
         return '#'
