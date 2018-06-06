@@ -95,6 +95,7 @@ class DrawController():
         curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_BLACK)
         curses.init_pair(5, curses.COLOR_YELLOW, curses.COLOR_RED)
         curses.init_pair(6, curses.COLOR_RED, curses.COLOR_WHITE)
+        curses.init_pair(7, curses.COLOR_MAGENTA, curses.COLOR_MAGENTA)
         self.screen = stdscr
         self.height, self.width = stdscr.getmaxyx()
 
@@ -551,10 +552,10 @@ class Wall(Entity):
         return False
 
     def get_color_pair(self):
-        return 3
+        return 7
 
     def get_str(self):
-        return '#'
+        return ' '
 
 def intersects(a, b):
     a1,a2 = a
