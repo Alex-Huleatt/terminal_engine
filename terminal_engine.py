@@ -155,7 +155,7 @@ class DrawController():
                     self.rule_assignments[k].append(pix)
                     break
             else:
-                self._draw_char(pix.y, pix.x, self.default_char, co=curses.color_pair(500))
+                self._draw_char(pix.y, pix.x, self.default_char, co=self.default_color)
 
         self.to_restore = set()
 
