@@ -49,6 +49,9 @@ class Pair():
         for d in range(4 if ortho else 8):
             yield self + Pair.get_direction(d, ortho=ortho)
 
+    def rounded(self):
+        return Pair(int(self.y+.5), int(self.x+.5))
+
 class BufferedChar():
     def __init__(self, pos, char, color, draw_priority):
         assert isinstance(pos, Pair)
@@ -74,6 +77,8 @@ class DrawController():
         self.drawn = set()
         self.to_restore = set()
 
+        self.default_color = 0
+
     def init_screen(self):
         stdscr = curses.initscr()
         curses.noecho()
@@ -84,8 +89,9 @@ class DrawController():
 
         curses.start_color()
         curses.use_default_colors()
-        for i in range(0, curses.COLORS):
-            curses.init_pair(i + 1, i, -1)
+        curses.init_pair(0, curses.COLOR_BLACK, curses.COLOR_BLACK)
+        curses.init_pair(1, curses.COLOR_GREEN, -1)
+        curses.init_pair(2, curses.COLOR_MAGENTA, -1)
 
         self.screen = stdscr
         self.height, self.width = stdscr.getmaxyx()
@@ -95,10 +101,16 @@ class DrawController():
     def set_default_char(self, c):
         self.default_char = c
 
+    def set_default_color(self, co):
+        self.default_color = co
+
     def update(self, modified):
         self.to_restore.update(modified)
 
-    def add_rule(self, rule_id, rule, ch, color=None, modified=None):
+    def add_rule(self, rule_id, rule, ch, color=0, modified=None):
+        ''' Adds a rule, if modified is not none it will only update those cells. rule_id must be unique '''
+        assert rule_id not in self.rules
+
         self.rules[rule_id] = (rule,ch,color)
         if modified is None:
             for i in range(self.height):
@@ -109,7 +121,7 @@ class DrawController():
         else:
             self.to_restore.update(modified)
 
-    def update_rule(self, rule_id, rule, ch, color=None, modified=None):
+    def update_rule(self, rule_id, rule, ch, color=0, modified=None):
         self.remove_rule(rule_id)
         self.add_rule(rule_id, rule, ch, color=color, modified=modified)
 
@@ -119,15 +131,11 @@ class DrawController():
             self.to_restore.update(self.rule_assignments[rule_id])
             self.rule_assignments.pop(rule_id)
 
-    def _draw_posn(self, p):
-        return Pair(int(p.y+.5), int(p.x+.5))
+    def _draw_char(self, y, x, ch, co=0):
 
-    def _draw_char(self, y, x, ch, co=None):
-        if co is None:
-            co = curses.color_pair(0)
         if y < self.height and y >= 0 and x < self.width and x >= 0 and (y < self.height - 1 or x < self.width - 1):
-            draw_y, draw_x = self._draw_posn(Pair(y,x))
-            self.screen.addstr(draw_y, draw_x, ch, co)
+            draw_y, draw_x = Pair(y,x).rounded()
+            self.screen.addstr(draw_y, draw_x, ch, curses.color_pair(co))
 
     def full_draw(self):
         ''' prepares to redraw every cell, the subsequent render (restore) will be expensive '''
@@ -137,6 +145,7 @@ class DrawController():
                 self.to_restore.add(p)
 
     def restore(self):
+        '''Each iteration, anything not explicitly drawn is redrawn to the value specified in the rules, or the default'''
         self.rule_assignments = defaultdict(list)
         for pix in self.to_restore:
             for k in self.rules:
@@ -146,7 +155,7 @@ class DrawController():
                     self.rule_assignments[k].append(pix)
                     break
             else:
-                self._draw_char(pix.y, pix.x, self.default_char)
+                self._draw_char(pix.y, pix.x, self.default_char, co=curses.color_pair(500))
 
         self.to_restore = set()
 
@@ -159,8 +168,8 @@ class DrawController():
             color, char = bc.color, bc.char
             self._draw_char(y, x, char, color)
             
-            p = Pair(int(y+.5), int(x+.5))
-            
+
+            p = bc.pos.rounded()
             if p in self.to_restore:
                 self.to_restore.remove(p)
 
@@ -173,7 +182,6 @@ class DrawController():
         self.drawn = set()
         self.screen.refresh()
    
-
 #--------------------
 
 class MainController():
@@ -211,8 +219,7 @@ class MainController():
         old_vis = self.w.visible
         self.w.calc_visibility()
 
-
-        self.dc.update(old_vis^self.w.visible)
+        self.dc.update(old_vis^self.w.visible) #explicitly update these cells
 
         for c in chrs:
             self.dc.draw(c)
@@ -233,7 +240,6 @@ class MainController():
             
             for h in self.ctx.key_handlers[k]:
                 h.callback(h.key)
-
      
 class SharedContext(): #singleton
 
@@ -286,7 +292,7 @@ class SharedContext(): #singleton
     def pos_in_world(self, p):
         return self.world.pos_in_world(p)
 
-def get_line( p1,p2,obs,dis=3,extend_prob=.05):
+def get_line( p1,p2,obs,dis=3,extend_prob=.009):
     y0,x0=p1
     y1,x1=p2
     r = []
@@ -321,7 +327,7 @@ def get_line( p1,p2,obs,dis=3,extend_prob=.05):
 
 def visibility(obs, start, valid, height, width):
     assert isinstance(start, Pair)
-
+    assert isinstance(obs, set)
     i = 0
     vis = set()
     for i in range(0, width):
@@ -345,6 +351,8 @@ class World():
         self.entities = []
         self.visible = set()
 
+        self.visible_ent = set()
+
     def add(self, e):
         assert isinstance(e, Entity)
 
@@ -359,26 +367,31 @@ class World():
         return snp
 
     def calc_visibility(self):
-        obs = []
+        obs = set()
         for e in self.entities:
             if not e.is_transparent():
-                obs.append(e.get_pos())
+                obs.add(e.get_pos())
 
         valid = lambda n:n.y>=0 and n.y < self.height and n.x>=0 and n.x<self.width
-        visible = visibility(obs, filter(lambda x:isinstance(x,Player), self.entities)[0].get_pos(), valid, self.height, self.width)
+        visible = set()
+        for pl in filter(lambda x:isinstance(x,Player), self.entities):
+            visible.update(visibility(obs, pl.get_pos(), valid, self.height, self.width))
         self.visible = visible
 
     def pos_in_world(self, p):
         return p.y >= 0 and p.y < self.height and p.x >= 0 and p.x < self.width
 
     def get_draws(self):
-        for e in self.entities:
+        for e in self.visible_ent:
             yield e.get_chars()
 
     def update(self):
         survived = []
+        self.visible_ent = set()
         for e in self.entities:
             e.update()
+            if e.get_pos().rounded() in self.visible:
+                self.visible_ent.add(e)
 
             if not e.is_dead():
                 survived.append(e)
@@ -400,7 +413,7 @@ class Entity(object): #base class
         return self.pos
 
     def get_color_pair(self):
-        return curses.color_pair(0)
+        return 0
 
     def get_str(self):
         return 'E'
@@ -414,9 +427,7 @@ class Entity(object): #base class
     def update(self):
         pass
 
-    def copy(self): #this is horrifying
-        # cpy = type(self).__new__(type(self))
-        # cpy.pos = self.get_pos()
+    def copy(self):
         return self
 
     def is_dead(self):
@@ -446,6 +457,9 @@ class Player(Entity):
     def get_str(self):
         return '&'
 
+    def get_color_pair(self):
+        return 1
+
     def is_transparent(self):
         return True
 
@@ -458,7 +472,7 @@ class Player(Entity):
 
         new_pos = self.get_pos() + direction
 
-        if len(posns[new_pos]) != 0:
+        if len(posns[new_pos]) != 0 or not ctx.pos_in_world(new_pos):
             #no
             pass
 
@@ -492,14 +506,14 @@ class Spooker(Entity):
             self.mood = 'happy'
 
     def get_str(self):
-        return '<' if self.mood == 'happy' else '^'
+        return '.' if self.mood == 'happy' else '>'
 
 class Fireball(Entity):
     def __init__(self, pos, direction):
         super(Fireball, self).__init__(pos)
         self.direction = direction
         self.speed = .3
-        self.ded = False
+        self.outside_vision_count = 0
 
     def get_str(self):
         return 'X'
@@ -509,15 +523,18 @@ class Fireball(Entity):
         np = Pair(self.speed*ny, self.speed*nx)
         self.set_pos(self.pos + np)
 
-        me = self.get_pos()
+        me = self.get_pos().rounded()
         ctx = SharedContext.get_instance()
 
-        ctx.log(me)
-        self.ded =  (me not in ctx.get_visible_posns() or not ctx.pos_in_world(me))
+        if (me not in ctx.get_visible_posns() or not ctx.pos_in_world(me)):
+            self.outside_vision_count += 1
+        else:
+            self.outside_vision_count = 0
+
 
     def is_dead(self):
 
-        return self.ded
+        return self.outside_vision_count > 4
 
 class Wall(Entity):
     def __init__(self, pos):
@@ -525,18 +542,103 @@ class Wall(Entity):
 
     def is_transparent(self):
         return False
+
+    def get_color_pair(self):
+        return 2
+
     def get_str(self):
         return '#'
+
+def intersects(a, b):
+    a1,a2 = a
+    a1x,a1y = a1
+    a2x,a2y = a2
+
+    b1,b2 = b
+    b1x,b1y = b1
+    b2x,b2y = b2
+
+    return not (a2y < b1y or a1y > b2y or a2x < b1x or a1x > b2x)
+
+def intersects_with_any(r, ls):
+    for l in ls:
+        if intersects(r, l):
+            return True
+    return False
+
+def get_dungeon(height, width):
+    rects = []
+    en=[]
+    for i in range(300):
+        py,px = (random.randint(1,height - 2),random.randint(1,width - 2))
+        h,w = random.randint(5,height-2), random.randint(5,width-2)
+        j = 0
+        while (height/2 in range(py,py+h) and width/2 in range(px,px+w) or intersects_with_any(((py,px),(py+h,px+w)),rects)) and j < 100:
+
+            py,px = (random.randint(1,height-2),random.randint(1,width-2))
+            h,w = random.randint(5,height-2), random.randint(5,width-2)
+
+            j+=1
+
+        if j < 100:
+            rects.append(((py,px),(py+h,px+w)))
+
+    obs = []
+    for r in rects:
+
+        ly,lx = r[0]
+        hy,hx = r[1]
+
+        ly+=1
+        lx+=1
+        hy-=1
+        hx-=1
+
+        sds = []
+        for i in range(ly,hy+1):
+
+            sds.append((i,lx))
+            sds.append((i,hx))
+
+        for i in range(lx,hx+1):
+            if (ly,i) not in sds:
+                sds.append((ly,i))
+            if (hy,i) not in sds:
+                sds.append((hy,i))
+
+
+
+        #if random.random() < .999:
+        for i in range(random.randint(1,5)):
+            sds.pop(random.randint(0,len(sds)-1))
+        en.append(((ly+hy)/2,(lx+hx)/2))
+        obs.extend(sds)
+    for i in range(height):
+        obs.append((i,0))
+        obs.append((i,width-1))
+
+    for i in range(width):
+        obs.append((0,i))
+        obs.append((height-1,i))
+
+    obs = map(lambda p:Pair(p[0],p[1]), obs)
+    return obs
+
 
 def main():
     try:
         mc = MainController(world_height=60, world_width=60)
-        mc.get_draw_controller().set_default_char('.')
         player = Player(Pair(20,20))
-
         spooker = Spooker(Pair(40,40))
         mc.w.add(player)
         mc.w.add(spooker)
+
+        walls = get_dungeon(mc.w.height, mc.w.width)
+
+        for w in walls:
+            wa = Wall(w)
+            mc.w.add(wa)
+
         mc.dc.full_draw()
         while True:
             mc.tock()
