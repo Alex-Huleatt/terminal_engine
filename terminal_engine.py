@@ -63,56 +63,116 @@ class KeyHandler():
         self.key = key
         self.callback = callback
         
-#everything is in the set, except anything satisfying any of some functions, except any exceptions
-class InclusiveSet(): 
+class DrawController():
     def __init__(self):
-        self.plus = set()
-        self.neg_funcs = set() #of functions
+        self.draw_buffer = defaultdict(list)
+        self.default_char = ' '
 
-    def remove_from_complement(self, e, weak=False):
-        ''' explicitly add an element to the set. If weak is True, will only add to set if it satisfies all constraining functions'''
-        if weak:
-            for f in self.funs:
-                if f(e):
-                    return
-        
-        self.plus.add(e)
+        self.rules = {}
+        self.rule_assignments = defaultdict(list)
 
-    def sub_group(self, f, retroactive=False):
-        ''' Constrains the universe to elements that satisfy f. f should be a function that receives a single element from the universe '''
-        self.neg_funcs.add(f)
+        self.drawn = set()
+        self.to_restore = set()
 
-        if retroactive:
-            to_sub = set()
-            for e in self.plus:
-                if f(e):
-                    to_sub.add(e)
-            self.plus -= to_sub
+    def init_screen(self):
+        stdscr = curses.initscr()
+        curses.noecho()
+        curses.cbreak()
+        curses.curs_set(0)
+        stdscr.nodelay(1)
+        stdscr.keypad(1)
 
-    def __contains__(self, e):
-        if e in self.plus:
-            return True
+        curses.start_color()
+        curses.use_default_colors()
+        for i in range(0, curses.COLORS):
+            curses.init_pair(i + 1, i, -1)
 
-        for f in self.funs:
-            if f(e):
-                return False
+        self.screen = stdscr
+        self.height, self.width = stdscr.getmaxyx()
 
-        return True
+        return stdscr
 
-    def __iter__(self, universe=None):
-        if universe is None:
-            for e in self.plus:
-                yield e
+    def set_default_char(self, c):
+        self.default_char = c
+
+    def update(self, modified):
+        self.to_restore.update(modified)
+
+    def add_rule(self, rule_id, rule, ch, color=None, modified=None):
+        self.rules[rule_id] = (rule,ch,color)
+        if modified is None:
+            for i in range(self.height):
+                for j in range(self.width):
+                    p = Pair(i,j)
+                    if rule(p):
+                        self.to_restore.add(p)
         else:
-            for e in universe:
-                if e in self:
-                    yield e
+            self.to_restore.update(modified)
 
-    def update(self, iterable):
-        for e in iterable:
-            self.remove_from_complement(e)
+    def update_rule(self, rule_id, rule, ch, color=None, modified=None):
+        self.remove_rule(rule_id)
+        self.add_rule(rule_id, rule, ch, color=color, modified=modified)
+
+    def remove_rule(self, rule_id):
+        if rule_id in self.rules:
+            self.rules.pop(rule_id)
+            self.to_restore.update(self.rule_assignments[rule_id])
+            self.rule_assignments.pop(rule_id)
+
+    def _draw_posn(self, p):
+        return Pair(int(p.y+.5), int(p.x+.5))
+
+    def _draw_char(self, y, x, ch, co=None):
+        if co is None:
+            co = curses.color_pair(0)
+        if y < self.height and y >= 0 and x < self.width and x >= 0 and (y < self.height - 1 or x < self.width - 1):
+            draw_y, draw_x = self._draw_posn(Pair(y,x))
+            self.screen.addstr(draw_y, draw_x, ch, co)
+
+    def full_draw(self):
+        ''' prepares to redraw every cell, the subsequent render (restore) will be expensive '''
+        for i in range(self.height):
+            for j in range(self.width):
+                p = Pair(i,j)
+                self.to_restore.add(p)
+
+    def restore(self):
+        self.rule_assignments = defaultdict(list)
+        for pix in self.to_restore:
+            for k in self.rules:
+                rule = self.rules[k]
+                if rule[0](pix):
+                    self._draw_char(pix.y, pix.x, rule[1], rule[2])
+                    self.rule_assignments[k].append(pix)
+                    break
+            else:
+                self._draw_char(pix.y, pix.x, self.default_char)
+
+        self.to_restore = set()
+
+    def draw(self, buffered_chars):
+        
+        for bc in buffered_chars:
+
+            y,x = bc.pos
+
+            color, char = bc.color, bc.char
+            self._draw_char(y, x, char, color)
+            
+            p = Pair(int(y+.5), int(x+.5))
+            
+            if p in self.to_restore:
+                self.to_restore.remove(p)
+
+            self.drawn.add(p)
 
 
+    def render(self):
+        self.restore()
+        self.to_restore = self.drawn
+        self.drawn = set()
+        self.screen.refresh()
+   
 
 #--------------------
 
@@ -125,17 +185,22 @@ class MainController():
 
         if world_height is None:
             world_height = dc.height
+
         if world_width is None:
             world_width = dc.width
 
         w = World(world_height, world_width)
         self.w = w
 
+        self.dc.add_rule('vis', lambda p:p in self.w.visible, ' ')
+
         ctx = SharedContext()
         ctx.world = self.w
         ctx.draw_controller = dc
         self.ctx = ctx
 
+    def get_draw_controller(self):
+        return self.dc
 
 
     def tock(self):
@@ -143,15 +208,14 @@ class MainController():
         chrs = self.w.get_draws()
         self.w.update()
 
+        old_vis = self.w.visible
         self.w.calc_visibility()
 
 
-        self.dc.set_visible(self.w.visible)
+        self.dc.update(old_vis^self.w.visible)
 
         for c in chrs:
             self.dc.draw(c)
-
-
 
         self.dc.render()
 
@@ -170,82 +234,7 @@ class MainController():
             for h in self.ctx.key_handlers[k]:
                 h.callback(h.key)
 
-class DrawController():
-    def __init__(self):
-        self.draw_buffer = defaultdict(list)
-        self.updated = []
-
-    def init_screen(self):
-        stdscr = curses.initscr()
-        curses.noecho()
-        curses.cbreak()
-        curses.curs_set(0)
-        stdscr.nodelay(1)
-        stdscr.keypad(1)
-
-        curses.start_color()
-        curses.use_default_colors()
-        for i in range(0, curses.COLORS):
-            curses.init_pair(i + 1, i, -1)
-
-        self.screen = stdscr
-        self.height, self.width = stdscr.getmaxyx()
-
-        self.visible = set()
-        self.drawn = set()
-        self.to_restore = set()
-        return stdscr
-
-    def _draw_posn(self, p):
-        return Pair(int(p.y+.5), int(p.x+.5))
-
-    def _draw_char(self, y, x, ch, co=None):
-        if co is None:
-            co = curses.color_pair(0)
-        if y < self.height and y >= 0 and x < self.width and x >= 0 and (y < self.height - 1 or x < self.width - 1):
-            draw_y, draw_x = self._draw_posn(Pair(y,x))
-            self.screen.addstr(draw_y, draw_x, ch, co)
-
-    def full_draw(self): #expensive
-        for i in range(self.height):
-            for j in range(self.width):
-                p = Pair(i,j)
-                self.to_restore.add(p)
-        
-    def set_visible(self, vis):
-        self.to_restore.update(vis^self.visible)
-        self.visible = vis
-
-    def undraw(self):
-        for pix in self.to_restore:
-            if (pix in self.visible):
-                self._draw_char(pix.y, pix.x, ' ')
-            else:
-                self._draw_char(pix.y, pix.x, '.')
-
-    def draw(self, buffered_chars):
-        
-        for bc in buffered_chars:
-            if self._draw_posn(bc.pos) in self.visible: #don't draw things outside fov
-                y,x = bc.pos
-
-                color, char = bc.color, bc.char
-                self._draw_char(y, x, char, color)
-                
-                p = Pair(int(y+.5), int(x+.5))
-                
-                if p in self.to_restore:
-                    self.to_restore.remove(p)
-
-                self.drawn.add(p)
-
-
-    def render(self):
-        self.undraw()
-        self.to_restore = self.drawn
-        self.drawn = set()
-        self.screen.refresh()
-        
+     
 class SharedContext(): #singleton
 
     @staticmethod
@@ -354,7 +343,7 @@ class World():
         self.width = width
 
         self.entities = []
-        self.visible = []
+        self.visible = set()
 
     def add(self, e):
         assert isinstance(e, Entity)
@@ -542,6 +531,7 @@ class Wall(Entity):
 def main():
     try:
         mc = MainController(world_height=60, world_width=60)
+        mc.get_draw_controller().set_default_char('.')
         player = Player(Pair(20,20))
 
         spooker = Spooker(Pair(40,40))
