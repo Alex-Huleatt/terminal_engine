@@ -8,6 +8,8 @@ LEFT = 3
 
 TIME_UNIT = .017
 
+color_map = {'white':curses.COLOR_WHITE, 'black':curses.COLOR_BLACK, 'magenta':curses.COLOR_MAGENTA}
+
 #--------------------- 
 #Container classes
 
@@ -51,6 +53,9 @@ class Pair():
 
     def rounded(self):
         return Pair(int(self.y+.5), int(self.x+.5))
+
+    def euclidean(self, other):
+        return ((self.y-other.y)**2 + (self.x-other.x)**2)**.5
 
 class BufferedChar():
     def __init__(self, pos, char, color, draw_priority):
@@ -295,7 +300,10 @@ class SharedContext(): #singleton
     def pos_in_world(self, p):
         return self.world.pos_in_world(p)
 
-def get_line( p1,p2,obs,dis=3,extend_prob=.009):
+    def get_player_pos(self):
+        return filter(lambda e:isinstance(e,Player),self.world.entities)
+
+def get_line( p1,p2,obs,dis=8,extend_prob=.009):
     y0,x0=p1
     y1,x1=p2
     r = []
@@ -413,7 +421,7 @@ class Entity(object): #base class
         return True
 
     def get_pos(self):
-        return self.pos
+        return self.pos.rounded()
 
     def get_color_pair(self):
         return 0
@@ -457,6 +465,9 @@ class Player(Entity):
         self.base_rof = 30
         self.rof_timer = 0
 
+        self.base_rom = 4
+        self.rom_timer = 0
+
     def get_str(self):
         return '&'
 
@@ -467,22 +478,23 @@ class Player(Entity):
         return True
 
     def try_move(self, direct):
+        if self.rom_timer == 0:
+            ctx = SharedContext.get_instance()
+            direction = Pair.get_direction(direct)
 
-        ctx = SharedContext.get_instance()
-        direction = Pair.get_direction(direct)
+            posns = ctx.get_snapshot()
 
-        posns = ctx.get_snapshot()
+            new_pos = self.pos + direction
 
-        new_pos = self.get_pos() + direction
+            if len(filter(lambda x:not isinstance(x,Player),posns[new_pos.rounded()])) != 0 or not ctx.pos_in_world(new_pos.rounded()):
+                #no
+                pass
 
-        if len(posns[new_pos]) != 0 or not ctx.pos_in_world(new_pos):
-            #no
-            pass
-
-        else:
-            #yes
-            self.last_direction = direct
-            self.pos = new_pos
+            else:
+                #yes
+                self.rom_timer = self.base_rom
+                self.last_direction = direct
+                self.pos = new_pos
 
     def shoot(self):
         if self.rof_timer == 0:
@@ -492,12 +504,16 @@ class Player(Entity):
 
     def update(self):
         self.rof_timer = max(0, self.rof_timer-1)
+        self.rom_timer = max(0, self.rom_timer-1)
 
 class Spooker(Entity):
     
     def __init__(self, pos):
         super(Spooker, self).__init__(pos)
         self.mood = 'happy'
+
+        self.base_rom = 4
+        self.rom_timer = 0
 
     def get_color_pair(self):
         return 6
@@ -506,10 +522,14 @@ class Spooker(Entity):
         return False 
 
     def update(self):
-        if self.get_pos() in SharedContext.get_instance().get_visible_posns():
-            self.mood = 'hangry'
-        else:
-            self.mood = 'happy'
+        ctx = SharedContext.get_instance()
+        if self.get_pos() in ctx.get_visible_posns():
+            pl = ctx.get_player_pos()[0]
+
+            if pl.get_pos().euclidean(self.get_pos()) < 5:
+                pass
+        
+
 
     def get_str(self):
         return '&'
@@ -518,11 +538,12 @@ class Fireball(Entity):
     def __init__(self, pos, direction):
         super(Fireball, self).__init__(pos)
         self.direction = direction
-        self.speed = .3
+        self.speed = .5
         self.outside_vision_count = 0
 
     def get_color_pair(self):
         return 5
+
     def get_str(self):
         return 'X'
 
