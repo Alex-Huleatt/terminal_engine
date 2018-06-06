@@ -94,6 +94,7 @@ class DrawController():
         curses.init_pair(3, curses.COLOR_MAGENTA, curses.COLOR_WHITE)
         curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_BLACK)
         curses.init_pair(5, curses.COLOR_YELLOW, curses.COLOR_RED)
+        curses.init_pair(6, curses.COLOR_RED, curses.COLOR_WHITE)
         self.screen = stdscr
         self.height, self.width = stdscr.getmaxyx()
 
@@ -497,6 +498,9 @@ class Spooker(Entity):
         super(Spooker, self).__init__(pos)
         self.mood = 'happy'
 
+    def get_color_pair(self):
+        return 6
+
     def is_transparent(self):
         return False 
 
@@ -507,7 +511,7 @@ class Spooker(Entity):
             self.mood = 'happy'
 
     def get_str(self):
-        return '.' if self.mood == 'happy' else '>'
+        return '&'
 
 class Fireball(Entity):
     def __init__(self, pos, direction):
@@ -515,7 +519,7 @@ class Fireball(Entity):
         self.direction = direction
         self.speed = .3
         self.outside_vision_count = 0
-        
+
     def get_color_pair(self):
         return 5
     def get_str(self):
@@ -625,22 +629,27 @@ def get_dungeon(height, width):
         obs.append((height-1,i))
 
     obs = map(lambda p:Pair(p[0],p[1]), obs)
-    return obs
+    en = map(lambda p:Pair(p[0], p[1]), en)
+    return obs,en
 
 
 def main():
     try:
         mc = MainController(world_height=60, world_width=60)
         player = Player(Pair(20,20))
-        spooker = Spooker(Pair(40,40))
-        mc.w.add(player)
-        mc.w.add(spooker)
 
-        walls = get_dungeon(mc.w.height, mc.w.width)
+        mc.w.add(player)
+
+
+        walls,en = get_dungeon(mc.w.height, mc.w.width)
 
         for w in walls:
             wa = Wall(w)
             mc.w.add(wa)
+
+        for e in en:
+            ene = Spooker(e)
+            mc.w.add(ene)
 
         mc.dc.full_draw()
         while True:
