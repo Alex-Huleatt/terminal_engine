@@ -501,6 +501,11 @@ class MobileEntity(Entity):
                 return True
         return False
 
+    def absolute_move(self, direction):
+        if self.get_rom_timer() == 0:
+            self.set_pos(self.get_pos() + Pair.get_direction(direction))
+            self.set_rom_timer(self.get_base_rom())
+
     def update(self):
         self.set_rom_timer(max(0, self.get_rom_timer()-1))
 
@@ -550,7 +555,7 @@ class Spooker(MobileEntity):
         super(Spooker, self).__init__(pos)
         self.mood = 'happy'
 
-        self.base_rom = 4
+        self.base_rom = 5
         self.rom_timer = 0
 
         self.hp = 100
@@ -562,20 +567,17 @@ class Spooker(MobileEntity):
         return False 
 
     def is_collidable(self):
-        return False
+        return True
 
     def update(self):
         ctx = SharedContext.get_instance()
         all_pos = ctx.get_snapshot()
 
-        
+        if any([isinstance(p,Fireball) for p in all_pos[self.get_pos()]]):
+            self.hp -= 50
 
         if self.get_pos() in ctx.get_visible_posns():
-            if any([isinstance(p,Fireball) for p in all_pos[self.get_pos()]]):
-                self.hp -= 50
-                if self.hp == 0:
-                   return
-
+            
             pl = ctx.get_player_pos()[0]
             
             pl_pos = pl.get_pos()
@@ -589,7 +591,7 @@ class Spooker(MobileEntity):
                 if self.rom_timer == 0:
                     self.pos = min_p
                     self.rom_timer = self.base_rom
-                    return
+                    # return
             elif dis > 5:
                 max_p = self.get_pos()
                 for n in self.get_pos().get_neighbors():
@@ -599,7 +601,8 @@ class Spooker(MobileEntity):
                 if self.rom_timer == 0:
                     self.pos = max_p
                     self.rom_timer = self.base_rom
-                    return
+                    # return
+
 
         self.rom_timer = max(0,self.rom_timer-1)
 
@@ -625,21 +628,30 @@ class Fireball(MobileEntity):
     def get_str(self):
         return 'O'
 
+    def is_collidable(self):
+        return False
+
     def update(self):
         super(Fireball, self).update()
 
-        did_move = self.try_move(self.direction)
-        if self.get_rom_timer() == 0 and not did_move:
-            self.ded = True
+        
+
+        ctx = SharedContext.get_instance()
+        here = ctx.get_snapshot()[self.get_pos()]
+        for h in here:
+            if h.is_collidable():
+                self.ded=True
 
 
         me = self.get_pos().rounded()
-        ctx = SharedContext.get_instance()
+        
         ctx.log(self.get_pos())
         if (me not in ctx.get_visible_posns() or not ctx.pos_in_world(me)):
             self.outside_vision_count += 1
         else:
             self.outside_vision_count = 0
+
+        self.absolute_move(self.direction)
 
 
     def is_dead(self):
