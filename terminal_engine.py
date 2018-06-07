@@ -209,6 +209,7 @@ class MainController():
         self.w = w
 
         self.dc.add_rule('vis', lambda p:p in self.w.visible, ' ')
+        self.dc.add_rule('outside', lambda p:p.y>= world_height or p.x >= world_width, ' ')
 
         ctx = SharedContext()
         ctx.world = self.w
@@ -522,7 +523,7 @@ class Player(MobileEntity):
         ctx.register_key(KeyHandler(self, curses.KEY_LEFT, lambda k:self.try_move(LEFT)))
         ctx.register_key(KeyHandler(self, ord(' '), lambda k:self.shoot())) #spacebar
 
-        self.base_rof = 30
+        self.base_rof = 25
         self.rof_timer = 0
 
         self.set_base_rom(2)
