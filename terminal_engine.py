@@ -364,17 +364,22 @@ class World():
 
         self.visible_ent = set()
 
+        self.cached_snapshot = None
+
     def add(self, e):
         assert isinstance(e, Entity)
 
         self.entities.append(e)
 
     def snapshot(self):
+        if self.cached_snapshot is not None:
+            return self.cached_snapshot
         snp = defaultdict(list)
+
         for e in self.entities:
             cpy = e.copy()
             snp[cpy.get_pos().rounded()].append(cpy)
-
+        self.cached_snapshot = snp
         return snp
 
     def calc_visibility(self):
@@ -408,6 +413,7 @@ class World():
                 survived.append(e)
             else:
                 SharedContext.get_instance().log(str(e)+" has died.")
+        self.cached_snapshot = None
         self.entities = survived
 
 
@@ -574,7 +580,7 @@ class Spooker(MobileEntity):
             
             pl_pos = pl.get_pos()
             dis = pl_pos.euclidean(self.get_pos()) 
-            if dis < 5 and dis > 1:
+            if dis < 5 :
                 min_p = self.get_pos()
                 for n in self.get_pos().get_neighbors():
                     if n.euclidean(pl_pos) < min_p.euclidean(pl_pos) and len(all_pos[n])==0:
@@ -709,8 +715,6 @@ def get_dungeon(height, width):
             if (hy,i) not in sds:
                 sds.append((hy,i))
 
-
-
         #if random.random() < .999:
         for i in range(random.randint(1,5)):
             sds.pop(random.randint(0,len(sds)-1))
@@ -728,10 +732,9 @@ def get_dungeon(height, width):
     en = map(lambda p:Pair(p[0], p[1]), en)
     return obs,en
 
-
 def main():
     try:
-        mc = MainController(world_height=60, world_width=60)
+        mc = MainController(world_height=60, world_width=120)
         player = Player(Pair(20,20))
 
         mc.w.add(player)
