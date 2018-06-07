@@ -498,8 +498,6 @@ class MobileEntity(Entity):
     def update(self):
         self.set_rom_timer(max(0, self.get_rom_timer()-1))
 
-
-
 class Player(MobileEntity):
 
     def __init__(self, pos):
@@ -512,8 +510,6 @@ class Player(MobileEntity):
         ctx.register_key(KeyHandler(self, curses.KEY_DOWN, lambda k:self.try_move(DOWN)))
         ctx.register_key(KeyHandler(self, curses.KEY_LEFT, lambda k:self.try_move(LEFT)))
         ctx.register_key(KeyHandler(self, ord(' '), lambda k:self.shoot())) #spacebar
-
-        self.last_direction = 0
 
         self.base_rof = 30
         self.rof_timer = 0
@@ -535,7 +531,7 @@ class Player(MobileEntity):
 
     def shoot(self):
         if self.rof_timer == 0:
-            SharedContext.get_instance().add_entity(Fireball(self.get_pos(), self.last_direction))
+            SharedContext.get_instance().add_entity(Fireball(self.get_pos(), self.get_last_direction()))
             self.rof_timer = self.base_rof
 
     def update(self):
@@ -588,6 +584,16 @@ class Spooker(MobileEntity):
                     self.pos = min_p
                     self.rom_timer = self.base_rom
                     return
+            elif dis > 5:
+                max_p = self.get_pos()
+                for n in self.get_pos().get_neighbors():
+                    if n.euclidean(pl_pos) > max_p.euclidean(pl_pos) and len(all_pos[n])==0:
+                        max_p = n
+
+                if self.rom_timer == 0:
+                    self.pos = max_p
+                    self.rom_timer = self.base_rom
+                    return
 
         self.rom_timer = max(0,self.rom_timer-1)
 
@@ -616,8 +622,8 @@ class Fireball(MobileEntity):
     def update(self):
         super(Fireball, self).update()
 
-
-        if self.get_rom_timer() == 0 and not self.try_move(self.direction):
+        did_move = self.try_move(self.direction)
+        if self.get_rom_timer() == 0 and not did_move:
             self.ded = True
 
 
