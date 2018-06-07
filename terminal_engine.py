@@ -449,10 +449,58 @@ class Entity(object): #base class
     def set_pos(self, p):
         self.pos = p
 
+    def is_collidable(self):
+        return True
+
     def __str__(self):
         return '[%s: @%s]'%(type(self), self.get_pos())
 
-class Player(Entity):
+class MobileEntity(Entity):
+
+    def __init__(self, pos):
+        super(MobileEntity, self).__init__(pos)
+
+        self.rom_timer = 0
+        self.base_rom = 0
+        self.last_direction = 0
+
+    def get_base_rom(self):
+        return self.base_rom
+
+    def set_base_rom(self, new_val):
+        self.base_rom = new_val
+
+    def get_rom_timer(self):
+        return self.rom_timer
+
+    def set_rom_timer(self, new_val):
+        self.rom_timer = new_val
+
+    def get_last_direction(self):
+        return self.last_direction
+
+    def try_move(self, direction):
+
+        if self.get_rom_timer() == 0:
+            ctx = SharedContext.get_instance()
+            all_units = ctx.get_snapshot()
+
+            new_pos = self.get_pos() + Pair.get_direction(direction)
+            if len(filter(lambda e:e.is_collidable(), all_units[new_pos])) > 0:
+                return False
+            else:
+                self.set_pos(new_pos)
+                self.set_rom_timer(self.get_base_rom())
+                self.last_direction = direction
+                return True
+        return False
+
+    def update(self):
+        self.set_rom_timer(max(0, self.get_rom_timer()-1))
+
+
+
+class Player(MobileEntity):
 
     def __init__(self, pos):
         super(Player, self).__init__(pos)
@@ -470,8 +518,7 @@ class Player(Entity):
         self.base_rof = 30
         self.rof_timer = 0
 
-        self.base_rom = 2
-        self.rom_timer = 0
+        self.set_base_rom(2)
 
     def get_str(self):
         return '&'
@@ -479,39 +526,23 @@ class Player(Entity):
     def get_color_pair(self):
         return 2
 
+    def is_collidable(self):
+        return False
+
     def is_transparent(self):
         return True
 
-    def try_move(self, direct):
-        if self.rom_timer == 0:
-            ctx = SharedContext.get_instance()
-            direction = Pair.get_direction(direct)
-
-            posns = ctx.get_snapshot()
-
-            new_pos = self.pos + direction
-
-            if len(filter(lambda x:not isinstance(x,Player),posns[new_pos.rounded()])) != 0 or not ctx.pos_in_world(new_pos.rounded()):
-                #no
-                pass
-
-            else:
-                #yes
-                self.rom_timer = self.base_rom
-                self.last_direction = direct
-                self.pos = new_pos
 
     def shoot(self):
         if self.rof_timer == 0:
-            fireball_pos = self.get_pos() + Pair.get_direction(self.last_direction)
-            SharedContext.get_instance().add_entity(Fireball(fireball_pos, self.last_direction))
+            SharedContext.get_instance().add_entity(Fireball(self.get_pos(), self.last_direction))
             self.rof_timer = self.base_rof
 
     def update(self):
         self.rof_timer = max(0, self.rof_timer-1)
         self.rom_timer = max(0, self.rom_timer-1)
 
-class Spooker(Entity):
+class Spooker(MobileEntity):
     
     def __init__(self, pos):
         super(Spooker, self).__init__(pos)
@@ -527,6 +558,9 @@ class Spooker(Entity):
 
     def is_transparent(self):
         return False 
+
+    def is_collidable(self):
+        return False
 
     def update(self):
         ctx = SharedContext.get_instance()
@@ -564,12 +598,14 @@ class Spooker(Entity):
     def get_str(self):
         return '&'
 
-class Fireball(Entity):
+class Fireball(MobileEntity):
     def __init__(self, pos, direction):
         super(Fireball, self).__init__(pos)
         self.direction = direction
-        self.speed = .5
         self.outside_vision_count = 0
+        self.ded = False
+
+        self.set_base_rom(2)
 
     def get_color_pair(self):
         return 5
@@ -578,13 +614,16 @@ class Fireball(Entity):
         return 'O'
 
     def update(self):
-        ny, nx = Pair.get_direction(self.direction)
-        np = Pair(self.speed*ny, self.speed*nx)
-        self.set_pos(self.pos + np)
+        super(Fireball, self).update()
+
+
+        if self.get_rom_timer() == 0 and not self.try_move(self.direction):
+            self.ded = True
+
 
         me = self.get_pos().rounded()
         ctx = SharedContext.get_instance()
-
+        ctx.log(self.get_pos())
         if (me not in ctx.get_visible_posns() or not ctx.pos_in_world(me)):
             self.outside_vision_count += 1
         else:
@@ -592,8 +631,7 @@ class Fireball(Entity):
 
 
     def is_dead(self):
-
-        return self.outside_vision_count > 4
+        return self.ded or self.outside_vision_count > 4
 
 class Wall(Entity):
     def __init__(self, pos):
