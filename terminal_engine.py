@@ -487,7 +487,7 @@ class MobileEntity(Entity):
         return self.last_direction
 
     def try_move(self, direction):
-
+        self.last_direction = direction
         if self.get_rom_timer() == 0:
             ctx = SharedContext.get_instance()
             all_units = ctx.get_snapshot()
@@ -498,7 +498,7 @@ class MobileEntity(Entity):
             else:
                 self.set_pos(new_pos)
                 self.set_rom_timer(self.get_base_rom())
-                self.last_direction = direction
+                
                 return True
         return False
 
