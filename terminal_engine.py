@@ -8,7 +8,40 @@ LEFT = 3
 
 TIME_UNIT = .017
 
-color_map = {'white':curses.COLOR_WHITE, 'black':curses.COLOR_BLACK, 'magenta':curses.COLOR_MAGENTA}
+color_map = {
+'white':curses.COLOR_WHITE,
+'black':curses.COLOR_BLACK,
+'magenta':curses.COLOR_MAGENTA,
+'cyan':curses.COLOR_CYAN,
+'red':curses.COLOR_RED,
+'green':curses.COLOR_GREEN,
+'yellow':curses.COLOR_YELLOW
+}
+
+class ColorController():
+    def __init__(self):
+        if hasattr(ColorController, "_instance"):
+            raise Exception('This is a singleton.')
+        self.pairs = {}
+        self.counter = 1
+    @staticmethod
+
+    def get_instance():
+        if not hasattr(ColorController, '_instance'):
+            ColorController._instance = ColorController()
+        return ColorController._instance
+
+    @staticmethod
+    def get_color(text, bg):
+        self = ColorController.get_instance()
+        if (text, bg) in self.pairs:
+            return self.pairs[(text, bg)]
+
+        else:
+            self.pairs[(text, bg)] = self.counter
+            curses.init_pair(self.counter, color_map[text], color_map[bg])
+            self.counter += 1
+            return self.counter - 1
 
 #--------------------- 
 #Container classes
@@ -82,7 +115,7 @@ class DrawController():
         self.drawn = set()
         self.to_restore = set()
 
-        self.default_color = 4
+        
 
     def init_screen(self):
         stdscr = curses.initscr()
@@ -94,16 +127,10 @@ class DrawController():
 
         curses.start_color()
         curses.use_default_colors()
-        curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
-        curses.init_pair(2, curses.COLOR_GREEN, curses.COLOR_WHITE)
-        curses.init_pair(3, curses.COLOR_MAGENTA, curses.COLOR_WHITE)
-        curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_BLACK)
-        curses.init_pair(5, curses.COLOR_YELLOW, curses.COLOR_RED)
-        curses.init_pair(6, curses.COLOR_RED, curses.COLOR_WHITE)
-        curses.init_pair(7, curses.COLOR_MAGENTA, curses.COLOR_MAGENTA)
-        curses.init_pair(9, curses.COLOR_CYAN, curses.COLOR_WHITE)
+
         self.screen = stdscr
         self.height, self.width = stdscr.getmaxyx()
+        self.default_color = ColorController.get_color('black', 'black')
 
 
         return stdscr
@@ -209,8 +236,8 @@ class MainController():
         w = World(world_height, world_width)
         self.w = w
 
-        self.dc.add_rule('vis', lambda p:p in self.w.visible, ' ')
-        self.dc.add_rule('outside', lambda p:p.y>= world_height or p.x >= world_width, ' ')
+        self.dc.add_rule('vis', lambda p:p in self.w.visible, ' ', color = ColorController.get_color("white","white"))
+        self.dc.add_rule('outside', lambda p:p.y>= world_height or p.x >= world_width, ' ', color = ColorController.get_color("white", "white"))
 
         ctx = SharedContext()
         ctx.world = self.w
@@ -422,7 +449,6 @@ class World():
         self.cached_snapshot = None
         self.entities = survived
 
-
 class Entity(object): #base class
 
     def __init__(self, pos):
@@ -452,7 +478,7 @@ class Entity(object): #base class
     def update(self):
         to_remove = set()
         for b in self.buffs:
-            b.apply()
+            b.tick()
             if b.get_duration() == 0:
                 to_remove.add(b)
                 b.cleanup()
@@ -474,6 +500,7 @@ class Entity(object): #base class
         return '[%s: @%s]'%(type(self), self.get_pos())
 
     def receive_buff(self, buff):
+        buff.apply()
         self.buffs.add(buff)
 
 class MobileEntity(Entity):
@@ -548,7 +575,7 @@ class Player(MobileEntity):
         return '&'
 
     def get_color_pair(self):
-        return 2
+        return ColorController.get_color('magenta', 'white')
 
     def is_collidable(self):
         return False
@@ -578,7 +605,7 @@ class Spooker(MobileEntity):
         self.hp = 100
 
     def get_color_pair(self):
-        return 6
+        return ColorController.get_color('red', 'white')
 
     def is_transparent(self):
         return False 
@@ -640,7 +667,7 @@ class Fireball(MobileEntity):
         self.set_base_rom(2)
 
     def get_color_pair(self):
-        return 5
+        return ColorController.get_color('red', 'yellow')
 
     def get_str(self):
         return 'O'
@@ -661,15 +688,13 @@ class Fireball(MobileEntity):
 
 
         me = self.get_pos().rounded()
-        
-        ctx.log(self.get_pos())
+
         if (me not in ctx.get_visible_posns() or not ctx.pos_in_world(me)):
             self.outside_vision_count += 1
         else:
             self.outside_vision_count = 0
 
         self.absolute_move(self.direction)
-
 
     def is_dead(self):
         return self.ded or self.outside_vision_count > 4
@@ -682,24 +707,26 @@ class Wall(Entity):
         return False
 
     def get_color_pair(self):
-        return 7
+        return ColorController.get_color('green', 'green')
 
     def get_str(self):
         return ' '
 
-class HastePotion(Entity):
-    def __init__(self, pos):
-        super(HastePotion, self).__init__(pos)
+class Potion(Entity):
+    def __init__(self, pos, bufftype, duration):
+        super(Potion, self).__init__(pos)
+
+
+        self.bufftype = bufftype
+        self.duration = duration
         self.applied = False
 
     def update(self):
-
+        super(Potion, self).update()
         ctx = SharedContext.get_instance()
         player = ctx.get_player_pos()[0]
-
         if self.get_pos() == player.get_pos():
-            old_rom = player.get_base_rom()
-            player.receive_buff(Buff(player, 200, lambda:player.set_base_rom(0), lambda:player.set_base_rom(old_rom)))
+            player.receive_buff(self.bufftype(player, self.duration))
             self.applied = True
 
     def is_dead(self):
@@ -709,30 +736,40 @@ class HastePotion(Entity):
         return '#'
 
     def get_color_pair(self):
-        return 9
+        return ColorController.get_color('cyan', 'white')
 
     def is_collidable(self):
         return False
 
-
 class Buff(object):
-    def __init__(self, unit, duration, power, cleanup):
+    def __init__(self, unit, duration):
         self.unit = unit
         self.duration = duration
-        self.power = power
-        self.cleanup = cleanup
 
     def get_duration(self):
         return self.duration
 
     def apply(self):
+        return 
+
+    def tick(self):
         self.duration -= 1
-        self.power()
 
     def cleanup(self):
-        self.cleanup()
+        return 
 
+class Haste(Buff):
+    def __init__(self, unit, duration):
+        assert isinstance(unit, MobileEntity)
+        super(Haste, self).__init__(unit, duration)
+        
 
+    def apply(self):
+        self.old_rom = self.unit.get_base_rom()
+        self.unit.set_base_rom(0)
+
+    def cleanup(self):
+        self.unit.set_base_rom(self.old_rom)
 
 def intersects(a, b):
     a1,a2 = a
@@ -810,9 +847,9 @@ def get_dungeon(height, width):
 
 def main():
     try:
-        mc = MainController(world_height=60, world_width=120)
+        mc = MainController(world_height=60, world_width=180)
         player = Player(Pair(20,20))
-        haste = HastePotion(Pair(25, 20))
+        haste = Potion(Pair(25, 20), Haste, 200)
         mc.w.add(haste)
         mc.w.add(player)
 
