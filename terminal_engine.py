@@ -781,6 +781,15 @@ class Haste(Buff):
     def cleanup(self):
         self.unit.set_base_rom(self.old_rom)
 
+class Ghost(Buff):
+
+    def apply(self):
+        self.old_f = self.unit.try_move
+        self.unit.try_move = self.unit.absolute_move
+
+    def cleanup(self):
+        self.unit.try_move = self.old_f
+
 def intersects(a, b):
     a1,a2 = a
     a1x,a1y = a1
@@ -859,7 +868,7 @@ def main():
     try:
         mc = MainController(world_height=60, world_width=180)
         player = Player(Pair(20,20))
-        haste = Potion(Pair(25, 20), Haste, 200)
+        haste = Potion(Pair(25, 20), Ghost, 200)
         mc.w.add(haste)
         mc.w.add(player)
 
