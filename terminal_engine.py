@@ -596,6 +596,9 @@ class MobileEntity(Entity):
         for n in self.get_pos().get_neighbors():
             if self.can_move(n) and (min_p is None or n.euclidean(pos) < min_p.euclidean(pos)):
                 min_p = n
+
+        if self.get_pos().euclidean(pos) < min_p.euclidean(pos):
+            return
         self.try_move(self.get_pos().direction_to(min_p))
 
     def move_away(self, pos):
@@ -603,7 +606,7 @@ class MobileEntity(Entity):
         for n in self.get_pos().get_neighbors():
             if self.can_move(n) and (max_p is None or n.euclidean(pos) > max_p.euclidean(pos)):
                 max_p = n
-    
+
         self.try_move(self.get_pos().direction_to(max_p))
 
     def update(self):
@@ -641,6 +644,12 @@ class Player(MobileEntity):
     def is_transparent(self):
         return True
 
+    def get_base_rof(self):
+        return self.base_rof
+
+    def set_base_rof(self, new_rof):
+        self.base_rof = new_rof
+        self.rof_timer = min(self.rof_timer, new_rof)
 
     def shoot(self):
         if self.rof_timer == 0:
@@ -732,8 +741,6 @@ class Fireball(MobileEntity):
     def update(self):
         super(Fireball, self).update()
 
-        
-
         ctx = SharedContext.get_instance()
         here = ctx.get_snapshot()[self.get_pos()]
         for h in here:
@@ -743,7 +750,7 @@ class Fireball(MobileEntity):
 
         me = self.get_pos().rounded()
 
-        if (me not in ctx.get_visible_posns() or not ctx.pos_in_world(me)):
+        if me not in ctx.get_visible_posns():
             self.outside_vision_count += 1
         else:
             self.outside_vision_count = 0
@@ -834,24 +841,16 @@ class Ghost(Buff):
     def cleanup(self):
         self.unit.try_move = self.old_f
 
-def intersects(a, b):
-    a1,a2 = a
-    a1x,a1y = a1
-    a2x,a2y = a2
+class Sith(Buff):
 
-    b1,b2 = b
-    b1x,b1y = b1
-    b2x,b2y = b2
+    def apply(self):
+        self.old_base_rof = self.unit.get_base_rof()
+        self.unit.set_base_rof(8)
 
-    return not (a2y < b1y or a1y > b2y or a2x < b1x or a1x > b2x)
+    def cleanup(self):
+        self.unit.set_base_rof(self.old_base_rof)
 
-def intersects_with_any(r, ls):
-    for l in ls:
-        if intersects(r, l):
-            return True
-    return False
-
-powerup_types = [Haste, Ghost]
+powerup_types = [Sith, Haste, Ghost]
 
 def main():
     try:
@@ -884,7 +883,6 @@ def main():
         while True:
             mc.tock()
             sleep(TIME_UNIT)
-        raw_input()
     finally:
         curses.endwin()
         log = SharedContext.get_instance().log_list
