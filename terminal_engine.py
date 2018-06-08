@@ -1,6 +1,7 @@
 import curses, random
 from collections import defaultdict
 from time import sleep
+import dungeon
 UP = 0
 RIGHT = 1
 DOWN = 2
@@ -91,12 +92,20 @@ class Pair():
         return ((self.y-other.y)**2 + (self.x-other.x)**2)**.5
 
 class BufferedChar():
-    def __init__(self, pos, char, color, draw_priority):
+    def __init__(self, pos, char, color):
         assert isinstance(pos, Pair)
         self.pos = pos
         self.char = char
         self.color = color
-        self.draw_priority = draw_priority
+
+    @staticmethod
+    def from_string(st, upper_left, direction, color):
+        res = []
+        p = upper_left
+        for c in st:
+            res.append(BufferedChar(p, c, color))
+
+        return res
 
 class KeyHandler():
     def __init__(self, registree, key, callback):
@@ -473,7 +482,7 @@ class Entity(object): #base class
         return 0
 
     def get_chars(self):
-        return [BufferedChar(self.get_pos(), self.get_str(), self.get_color_pair(), self.get_draw_priority())]
+        return [BufferedChar(self.get_pos(), self.get_str(), self.get_color_pair())]
 
     def update(self):
         to_remove = set()
@@ -544,6 +553,7 @@ class MobileEntity(Entity):
         return False
 
     def absolute_move(self, direction):
+        self.last_direction = direction
         if self.get_rom_timer() == 0:
             self.set_pos(self.get_pos() + Pair.get_direction(direction))
             self.set_rom_timer(self.get_base_rom())
@@ -807,81 +817,34 @@ def intersects_with_any(r, ls):
             return True
     return False
 
-def get_dungeon(height, width):
-    rects = []
-    en=[]
-    for i in range(300):
-        py,px = (random.randint(1,height - 2),random.randint(1,width - 2))
-        h,w = random.randint(5,height-2), random.randint(5,width-2)
-        j = 0
-        while (height/2 in range(py,py+h) and width/2 in range(px,px+w) or intersects_with_any(((py,px),(py+h,px+w)),rects)) and j < 100:
-
-            py,px = (random.randint(1,height-2),random.randint(1,width-2))
-            h,w = random.randint(5,height-2), random.randint(5,width-2)
-
-            j+=1
-
-        if j < 100:
-            rects.append(((py,px),(py+h,px+w)))
-
-    obs = []
-    for r in rects:
-
-        ly,lx = r[0]
-        hy,hx = r[1]
-
-        ly+=1
-        lx+=1
-        hy-=1
-        hx-=1
-
-        sds = []
-        for i in range(ly,hy+1):
-
-            sds.append((i,lx))
-            sds.append((i,hx))
-
-        for i in range(lx,hx+1):
-            if (ly,i) not in sds:
-                sds.append((ly,i))
-            if (hy,i) not in sds:
-                sds.append((hy,i))
-
-        #if random.random() < .999:
-        for i in range(random.randint(1,5)):
-            sds.pop(random.randint(0,len(sds)-1))
-        en.append(((ly+hy)/2,(lx+hx)/2))
-        obs.extend(sds)
-    for i in range(height):
-        obs.append((i,0))
-        obs.append((i,width-1))
-
-    for i in range(width):
-        obs.append((0,i))
-        obs.append((height-1,i))
-
-    obs = map(lambda p:Pair(p[0],p[1]), obs)
-    en = map(lambda p:Pair(p[0], p[1]), en)
-    return obs,en
+powerup_types = [Haste, Ghost]
 
 def main():
     try:
         mc = MainController(world_height=60, world_width=180)
         player = Player(Pair(20,20))
-        haste = Potion(Pair(25, 20), Ghost, 200)
-        mc.w.add(haste)
         mc.w.add(player)
+        walls, en, powerups = dungeon.weird_dungeon(mc.w.height, mc.w.width)
+        wall_pos = []
+        for i in range(mc.w.height):
+            for j in range(mc.w.width):
+                if walls[i][j]:
+                    wall_pos.append(Pair(i,j))
 
+        en = map(lambda p:Pair(p[0], p[1]), en)
+        powerups = map(lambda p:Pair(p[0], p[1]), powerups)
 
-        walls,en = get_dungeon(mc.w.height, mc.w.width)
-
-        for w in walls:
+        for w in wall_pos:
             wa = Wall(w)
             mc.w.add(wa)
 
         for e in en:
             ene = Spooker(e)
             mc.w.add(ene)
+
+        for p in powerups:
+            pot = Potion(p, random.choice(powerup_types), 200)
+            mc.w.add(pot)
 
         mc.dc.full_draw()
         while True:
