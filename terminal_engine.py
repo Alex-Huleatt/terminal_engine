@@ -19,6 +19,16 @@ color_map = {
 'yellow':curses.COLOR_YELLOW
 }
 
+def sign(x):
+    if x < 0:
+        return -1
+
+    if x > 0:
+        return 1
+
+    if x == 0:
+        return 0
+
 class ColorController():
     def __init__(self):
         if hasattr(ColorController, "_instance"):
@@ -43,6 +53,8 @@ class ColorController():
             curses.init_pair(self.counter, color_map[text], color_map[bg])
             self.counter += 1
             return self.counter - 1
+
+
 
 #--------------------- 
 #Container classes
@@ -90,6 +102,22 @@ class Pair():
 
     def euclidean(self, other):
         return ((self.y-other.y)**2 + (self.x-other.x)**2)**.5
+
+    def direction_to(self, other):
+        diff =  other - self
+        if abs(diff.y) > abs(diff.x):
+            if sign(diff.y) == -1:
+                return 0
+            else:
+                return 2
+
+        else:
+            if sign(diff.x) == -1:
+                return 3
+            else:
+                return 1
+
+
 
 class BufferedChar():
     def __init__(self, pos, char, color):
@@ -558,6 +586,26 @@ class MobileEntity(Entity):
             self.set_pos(self.get_pos() + Pair.get_direction(direction))
             self.set_rom_timer(self.get_base_rom())
 
+    def can_move(self, pos):
+        ctx = SharedContext.get_instance()
+        all_units = ctx.get_snapshot()
+        return len(filter(lambda e:e.is_collidable(), all_units[pos])) == 0
+
+    def move_toward(self, pos):
+        min_p = None
+        for n in self.get_pos().get_neighbors():
+            if self.can_move(n) and (min_p is None or n.euclidean(pos) < min_p.euclidean(pos)):
+                min_p = n
+        self.try_move(self.get_pos().direction_to(min_p))
+
+    def move_away(self, pos):
+        max_p = None
+        for n in self.get_pos().get_neighbors():
+            if self.can_move(n) and (max_p is None or n.euclidean(pos) > max_p.euclidean(pos)):
+                max_p = n
+    
+        self.try_move(self.get_pos().direction_to(max_p))
+
     def update(self):
         super(MobileEntity, self).update()
 
@@ -646,26 +694,12 @@ class Spooker(MobileEntity):
             
             pl_pos = pl.get_pos()
             dis = pl_pos.euclidean(self.get_pos()) 
+
             if dis < 5 :
-                min_p = self.get_pos()
-                for n in self.get_pos().get_neighbors():
-                    if n.euclidean(pl_pos) < min_p.euclidean(pl_pos) and len(all_pos[n])==0:
-                        min_p = n
+                self.move_toward(pl_pos)
 
-                if self.rom_timer == 0:
-                    self.pos = min_p
-                    self.rom_timer = self.base_rom
-                    # return
             elif dis > 5:
-                max_p = self.get_pos()
-                for n in self.get_pos().get_neighbors():
-                    if n.euclidean(pl_pos) > max_p.euclidean(pl_pos) and len(all_pos[n])==0:
-                        max_p = n
-
-                if self.rom_timer == 0:
-                    self.pos = max_p
-                    self.rom_timer = self.base_rom
-                    # return
+                self.move_away(pl_pos)
 
 
         self.rom_timer = max(0,self.rom_timer-1)
