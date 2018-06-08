@@ -132,6 +132,7 @@ class BufferedChar():
         p = upper_left
         for c in st:
             res.append(BufferedChar(p, c, color))
+            p = p + Pair.get_direction(direction)
 
         return res
 
@@ -298,6 +299,11 @@ class MainController():
         for c in chrs:
             self.dc.draw(c)
 
+        pl = self.ctx.get_player_pos()[0]
+        buffs = map(str, pl.get_buffs())
+        for i in range(len(buffs)):
+            b = buffs[i]
+            self.dc.draw(BufferedChar.from_string(str(b), Pair(i,self.w.width+1), 1, ColorController.get_color("black", "white")))
         self.dc.render()
 
     def handle_input(self): #order not guaranteed
@@ -539,6 +545,9 @@ class Entity(object): #base class
     def receive_buff(self, buff):
         buff.apply()
         self.buffs.add(buff)
+
+    def get_buffs(self):
+        return self.buffs
 
 class MobileEntity(Entity):
 
@@ -818,6 +827,9 @@ class Buff(object):
 
     def cleanup(self):
         return 
+
+    def __str__(self):
+        return self.__class__.__name__
 
 class Haste(Buff):
     def __init__(self, unit, duration):
