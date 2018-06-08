@@ -304,6 +304,9 @@ class MainController():
         for i in range(len(buffs)):
             b = buffs[i]
             self.dc.draw(BufferedChar.from_string(str(b), Pair(i,self.w.width+1), 1, ColorController.get_color("black", "white")))
+
+        st = "Enemies remaining:" + str(len(self.w.get_all_of_type(Spooker)))
+        self.dc.draw(BufferedChar.from_string(st, Pair(len(buffs), self.w.width+1), 1, ColorController.get_color("black", "white")))
         self.dc.render()
 
     def handle_input(self): #order not guaranteed
@@ -442,6 +445,8 @@ class World():
 
         self.cached_snapshot = None
 
+        self.by_type = defaultdict(list)
+
     def add(self, e):
         assert isinstance(e, Entity)
 
@@ -451,12 +456,18 @@ class World():
         if self.cached_snapshot is not None:
             return self.cached_snapshot
         snp = defaultdict(list)
-
+        by_type = defaultdict(list)
         for e in self.entities:
             cpy = e.copy()
             snp[cpy.get_pos().rounded()].append(cpy)
+
+            by_type[type(e)].append(e)
+        self.by_type = by_type
         self.cached_snapshot = snp
         return snp
+
+    def get_all_of_type(self, typ):
+        return self.by_type[typ]
 
     def calc_visibility(self):
         obs = set()
