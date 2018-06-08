@@ -445,7 +445,7 @@ class World():
             if not e.is_dead():
                 survived.append(e)
             else:
-                SharedContext.get_instance().log(str(e)+" has died.")
+                SharedContext.get_instance().log(e.__class__.__name__+" has died at " + str(e.get_pos()))
         self.cached_snapshot = None
         self.entities = survived
 
@@ -604,7 +604,16 @@ class Spooker(MobileEntity):
 
         self.hp = 100
 
+        self.flash_timer = 0
+
+
     def get_color_pair(self):
+        player = SharedContext.get_instance().get_player_pos()[0]
+        if self.get_pos().euclidean(player.get_pos()) < 2:
+            if self.flash_timer % 4 < 2:
+                return ColorController.get_color('black', 'white')
+            else:
+                return ColorController.get_color('white', 'black')
         return ColorController.get_color('red', 'white')
 
     def is_transparent(self):
@@ -614,6 +623,7 @@ class Spooker(MobileEntity):
         return True
 
     def update(self):
+        self.flash_timer += 1
         ctx = SharedContext.get_instance()
         all_pos = ctx.get_snapshot()
 
@@ -655,7 +665,7 @@ class Spooker(MobileEntity):
         return self.hp <= 0
 
     def get_str(self):
-        return '&'
+        return '@'
 
 class Fireball(MobileEntity):
     def __init__(self, pos, direction):
