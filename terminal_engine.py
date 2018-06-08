@@ -101,6 +101,7 @@ class DrawController():
         curses.init_pair(5, curses.COLOR_YELLOW, curses.COLOR_RED)
         curses.init_pair(6, curses.COLOR_RED, curses.COLOR_WHITE)
         curses.init_pair(7, curses.COLOR_MAGENTA, curses.COLOR_MAGENTA)
+        curses.init_pair(9, curses.COLOR_CYAN, curses.COLOR_WHITE)
         self.screen = stdscr
         self.height, self.width = stdscr.getmaxyx()
 
@@ -304,6 +305,10 @@ class SharedContext(): #singleton
     def get_player_pos(self):
         return filter(lambda e:isinstance(e,Player),self.world.entities)
 
+    def get_unit_at_pos(self, pos):
+        snp = self.get_snapshot()
+        return snp[pos]
+
 def get_line( p1,p2,obs,dis=8,extend_prob=.009):
     y0,x0=p1
     y1,x1=p2
@@ -424,7 +429,7 @@ class Entity(object): #base class
         assert isinstance(pos, Pair)
 
         self.pos = pos
-        self.ctx = SharedContext.get_instance()
+        self.buffs = set()
 
     def is_transparent(self):
         return True
@@ -445,7 +450,13 @@ class Entity(object): #base class
         return [BufferedChar(self.get_pos(), self.get_str(), self.get_color_pair(), self.get_draw_priority())]
 
     def update(self):
-        pass
+        to_remove = set()
+        for b in self.buffs:
+            b.apply()
+            if b.get_duration() == 0:
+                to_remove.add(b)
+                b.cleanup()
+        self.buffs -= to_remove
 
     def copy(self):
         return self
@@ -461,6 +472,9 @@ class Entity(object): #base class
 
     def __str__(self):
         return '[%s: @%s]'%(type(self), self.get_pos())
+
+    def receive_buff(self, buff):
+        self.buffs.add(buff)
 
 class MobileEntity(Entity):
 
@@ -508,6 +522,8 @@ class MobileEntity(Entity):
             self.set_rom_timer(self.get_base_rom())
 
     def update(self):
+        super(MobileEntity, self).update()
+
         self.set_rom_timer(max(0, self.get_rom_timer()-1))
 
 class Player(MobileEntity):
@@ -547,8 +563,8 @@ class Player(MobileEntity):
             self.rof_timer = self.base_rof
 
     def update(self):
+        super(Player,self).update()
         self.rof_timer = max(0, self.rof_timer-1)
-        self.rom_timer = max(0, self.rom_timer-1)
 
 class Spooker(MobileEntity):
     
@@ -671,6 +687,53 @@ class Wall(Entity):
     def get_str(self):
         return ' '
 
+class HastePotion(Entity):
+    def __init__(self, pos):
+        super(HastePotion, self).__init__(pos)
+        self.applied = False
+
+    def update(self):
+
+        ctx = SharedContext.get_instance()
+        player = ctx.get_player_pos()[0]
+
+        if self.get_pos() == player.get_pos():
+            old_rom = player.get_base_rom()
+            player.receive_buff(Buff(player, 200, lambda:player.set_base_rom(0), lambda:player.set_base_rom(old_rom)))
+            self.applied = True
+
+    def is_dead(self):
+        return self.applied
+
+    def get_str(self):
+        return '#'
+
+    def get_color_pair(self):
+        return 9
+
+    def is_collidable(self):
+        return False
+
+
+class Buff(object):
+    def __init__(self, unit, duration, power, cleanup):
+        self.unit = unit
+        self.duration = duration
+        self.power = power
+        self.cleanup = cleanup
+
+    def get_duration(self):
+        return self.duration
+
+    def apply(self):
+        self.duration -= 1
+        self.power()
+
+    def cleanup(self):
+        self.cleanup()
+
+
+
 def intersects(a, b):
     a1,a2 = a
     a1x,a1y = a1
@@ -749,7 +812,8 @@ def main():
     try:
         mc = MainController(world_height=60, world_width=120)
         player = Player(Pair(20,20))
-
+        haste = HastePotion(Pair(25, 20))
+        mc.w.add(haste)
         mc.w.add(player)
 
 
