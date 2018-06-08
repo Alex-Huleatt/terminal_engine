@@ -1,6 +1,6 @@
 import random
 
-def weird_dungeon(height, width):
+def weird_dungeon(height, width, enemy_density=.5, powerup_density = .2):
     gr = [[0]*width for i in range(height)]
     rooms = []
     def helper(gr, rooms, lowx, lowy, highx, highy):
@@ -27,13 +27,12 @@ def weird_dungeon(height, width):
             if removed.pop():
                 gr[i][px+width]=1
 
-        assert len(removed) == 0
         gr[py+height][px+width] = 1
 
-        helper(gr, rooms, lowx, lowy, highx, py-2)
-        helper(gr, rooms, lowx, py,  px-2, highy)
-        helper(gr, rooms, px+width+2, py, highx, highy)
-        helper(gr, rooms, px, py+height+2, px+width, highy)
+        helper(gr, rooms, lowx, lowy, highx, py-2) #above
+        helper(gr, rooms, lowx, py,  px-2, highy) #left
+        helper(gr, rooms, px+width+2, py, highx, highy) #right
+        helper(gr, rooms, px, py+height+2, px+width, highy) #below
 
         helper(gr, rooms, px+2, py+2, px+width - 2, py+height - 2) #inside
     helper(gr, rooms, 2, 2, width-2, height-2)
@@ -47,7 +46,7 @@ def weird_dungeon(height, width):
 
     enemies = []
     power_ups = []
-    for k in range(int(len(rooms)/2. +1)):
+    for k in range(int(len(rooms)*enemy_density + 1)):
         room = random.choice(rooms)
         ly, lx, hy, hx = room
 
@@ -55,7 +54,7 @@ def weird_dungeon(height, width):
 
         enemies.append((py, px))
 
-    for k in range(int(len(rooms)/5. + 1)):
+    for k in range(int(len(rooms)*powerup_density + 1)):
         room = random.choice(rooms)
         ly, lx, hy, hx = room
 
