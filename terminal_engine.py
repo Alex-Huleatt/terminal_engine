@@ -351,7 +351,7 @@ class World():
         by_type = defaultdict(list)
         for e in self.entities:
             cpy = e.copy()
-            snp[cpy.get_pos().rounded()].append(cpy)
+            snp[cpy.get_pos()].append(cpy)
 
             by_type[type(e)].append(e)
         self.by_type = by_type
@@ -394,12 +394,12 @@ class World():
         by_type = defaultdict(list)
         for e in self.entities:
             e.update()
-            if e.get_pos().rounded() in self.visible:
+            if e.get_pos() in self.visible:
                 self.visible_ent.add(e)
 
             if not e.is_dead():
                 survived.append(e)
-                snp[e.get_pos().rounded()].append(e)
+                snp[e.get_pos()].append(e)
                 for t in inspect.getmro(type(e)):
                     by_type[t].append(e)
             else:
@@ -645,7 +645,7 @@ class Fireball(MobileEntity):
                 self.ded=True
 
 
-        me = self.get_pos().rounded()
+        me = self.get_pos()
 
         if me not in ctx.get_visible_posns():
             self.outside_vision_count += 1
@@ -794,14 +794,14 @@ class Lantern(Buff):
 
 
 powerup_types = [Lantern, Vision, Haste, Sith, Ghost]
-powerup_durations = {Vision:10, Haste:200, Sith:350, Ghost:150, Lantern:200}
+powerup_durations = {Vision:15, Haste:200, Sith:350, Ghost:150, Lantern:200}
 
 
 
 def main():
     try:
         mc = MainController(world_height=60, world_width=180)
-        player = Player(Pair(20,20))
+        player = Player(Pair(30,90))
         mc.w.add(player)
         walls, en, powerups, rooms = dungeon.weird_dungeon(mc.w.height, mc.w.width, powerup_density=.3)
         wall_pos = []
