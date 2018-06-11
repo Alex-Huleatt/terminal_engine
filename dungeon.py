@@ -65,16 +65,3 @@ def weird_dungeon(height, width, enemy_density=.5, powerup_density = .2):
         power_ups.append((py, px))
 
     return gr, enemies, power_ups
-
-class Dungeon():
-    def __init__(self, height, width):
-        self.height = height
-        self.width = width
-
-        self.rooms = []
-
-        self.grid = []
-
-        self.enemies = []
-
-        self.powerups = []

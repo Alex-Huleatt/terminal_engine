@@ -815,7 +815,7 @@ class BreakableWall(Wall):
         self.hp = 5
 
     def get_str(self):
-        return '~'
+        return '|'
 
     def get_color_pair(self):
         return ColorController.get_color("black","green")
@@ -920,7 +920,7 @@ class Vision(Buff):
 
 
 powerup_types = [Vision, Haste, Sith, Ghost]
-powerup_durations = {Vision:10, Haste:200, Sith:350, Ghost:100}
+powerup_durations = {Vision:10, Haste:200, Sith:350, Ghost:150}
 
 def main():
     try:
