@@ -16,6 +16,7 @@ def sign(x):
     if x == 0:
         return 0
 
+
 class Pair():
     def __init__(self, y, x):
         self.x=x
@@ -46,7 +47,7 @@ class Pair():
     @staticmethod
     def get_direction(v, ortho=True):
         if ortho:
-            return Pair(*{UP:(-1, 0), RIGHT:(0, 1), DOWN:(1,0), LEFT:(0,-1)}[v])
+            return Pair._directions[v]
         else:
             return Pair(*[(-1,0),(-1,1),(0,1),(1,1),(1,0),(1,-1),(0,-1),(-1,-1)] [v])
 
@@ -73,7 +74,7 @@ class Pair():
                 return 3
             else:
                 return 1
-
+Pair._directions = {UP:Pair(-1, 0), RIGHT:Pair(0, 1), DOWN:Pair(1,0), LEFT:Pair(0,-1)}
 
 class BufferedChar():
     def __init__(self, pos, char, color):

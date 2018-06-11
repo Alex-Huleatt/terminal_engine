@@ -374,6 +374,7 @@ class World():
 
         vis_walls = set()
         for v in visible:
+            if v in obs:continue
             for n in v.get_neighbors():
                 if n in obs:
                     vis_walls.add(n)
@@ -553,7 +554,6 @@ class Spooker(MobileEntity):
         self.hp = 100
 
         self.flash_timer = 0
-
 
     def get_color_pair(self):
         player = SharedContext.get_instance().get_player_pos()[0]
