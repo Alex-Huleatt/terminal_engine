@@ -36,7 +36,7 @@ def weird_dungeon(height, width, enemy_density=.5, powerup_density = .2):
 
         helper(gr, rooms, px+2, py+2, px+width - 2, py+height - 2) #inside
     helper(gr, rooms, 2, 2, width-2, height-2)
-    
+
     for i in range(width):
         gr[0][i] = 1
         gr[height-1][i]=1
@@ -66,3 +66,15 @@ def weird_dungeon(height, width, enemy_density=.5, powerup_density = .2):
 
     return gr, enemies, power_ups
 
+class Dungeon():
+    def __init__(self, height, width):
+        self.height = height
+        self.width = width
+
+        self.rooms = []
+
+        self.grid = []
+
+        self.enemies = []
+
+        self.powerups = []

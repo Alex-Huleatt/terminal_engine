@@ -153,8 +153,6 @@ class DrawController():
         self.drawn = set()
         self.to_restore = set()
 
-        
-
     def init_screen(self):
         stdscr = curses.initscr()
         curses.noecho()
@@ -285,6 +283,16 @@ class MainController():
     def get_draw_controller(self):
         return self.dc
 
+    def draw_player_stats(self):
+        pl = self.ctx.get_player_pos()[0]
+        buffs = sorted(map(str, pl.get_buffs()))
+
+        st = "Enemies remaining:" + str(len(self.w.get_all_of_type(Spooker)))
+        self.dc.draw(BufferedChar.from_string(st, Pair(0, self.w.width+1), 1, ColorController.get_color("black", "white")))
+
+        for i in range(len(buffs)):
+            b = buffs[i]
+            self.dc.draw(BufferedChar.from_string(str(b), Pair(i+1,self.w.width+1), 1, ColorController.get_color("black", "white")))
 
     def tock(self):
         self.handle_input()
@@ -294,19 +302,12 @@ class MainController():
         old_vis = self.w.visible
         self.w.calc_visibility()
 
-        self.dc.update(old_vis^self.w.visible) #explicitly update these cells
+        self.dc.update(old_vis^self.w.visible) #explicitly update only the cells that changed visibility.
 
         for c in chrs:
             self.dc.draw(c)
 
-        pl = self.ctx.get_player_pos()[0]
-        buffs = map(str, pl.get_buffs())
-        for i in range(len(buffs)):
-            b = buffs[i]
-            self.dc.draw(BufferedChar.from_string(str(b), Pair(i,self.w.width+1), 1, ColorController.get_color("black", "white")))
-
-        st = "Enemies remaining:" + str(len(self.w.get_all_of_type(Spooker)))
-        self.dc.draw(BufferedChar.from_string(st, Pair(len(buffs), self.w.width+1), 1, ColorController.get_color("black", "white")))
+        self.draw_player_stats()
 
         self.dc.render()
 
@@ -324,6 +325,7 @@ class MainController():
             
             for h in self.ctx.key_handlers[k]:
                 h.callback(h.key)
+
      
 class SharedContext(): #singleton
 
@@ -378,7 +380,6 @@ class SharedContext(): #singleton
 
     def get_player_pos(self):
         return self.world.get_all_of_type(Player)
-    
 
     def get_unit_at_pos(self, pos):
         snp = self.get_snapshot()
