@@ -194,15 +194,19 @@ class MainController():
     def draw_player_stats(self):
         pl = self.ctx.get_player_pos()[0]
         buffs = sorted(map(str, pl.get_buffs()))
+        hp = pl.get_hp()//10
+        enemy_count = len(self.w.get_all_of_type(Spooker))
 
-        st = "Enemies remaining:" + str(len(self.w.get_all_of_type(Spooker)))
+        st = "Enemies remaining:" + str(enemy_count)
         self.dc.draw(BufferedChar.from_string(st, Pair(0, self.w.width+1), 1, ColorController.get_color("black", "white")))
 
-        self.dc.draw(BufferedChar.from_string(' '*(pl.get_hp()//10), Pair(1, self.w.width+1), 1, ColorController.get_color("red", "red")))
+        self.dc.draw(BufferedChar.from_string(' '*(hp), Pair(1, self.w.width+1), 1, ColorController.get_color("red", "red")))
 
         for i in range(len(buffs)):
             b = buffs[i]
             self.dc.draw(BufferedChar.from_string(str(b), Pair(i+2,self.w.width+1), 1, ColorController.get_color("black", "white")))
+
+
 
 
 
