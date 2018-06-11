@@ -307,6 +307,7 @@ class MainController():
 
         st = "Enemies remaining:" + str(len(self.w.get_all_of_type(Spooker)))
         self.dc.draw(BufferedChar.from_string(st, Pair(len(buffs), self.w.width+1), 1, ColorController.get_color("black", "white")))
+
         self.dc.render()
 
     def handle_input(self): #order not guaranteed
@@ -376,7 +377,8 @@ class SharedContext(): #singleton
         return self.world.pos_in_world(p)
 
     def get_player_pos(self):
-        return filter(lambda e:isinstance(e,Player),self.world.entities)
+        return self.world.get_all_of_type(Player)
+    
 
     def get_unit_at_pos(self, pos):
         snp = self.get_snapshot()
@@ -494,6 +496,8 @@ class World():
     def update(self):
         survived = []
         self.visible_ent = set()
+        snp = defaultdict(list)
+        by_type = defaultdict(list)
         for e in self.entities:
             e.update()
             if e.get_pos().rounded() in self.visible:
@@ -501,10 +505,16 @@ class World():
 
             if not e.is_dead():
                 survived.append(e)
+                snp[e.get_pos().rounded()].append(e)
+                by_type[type(e)].append(e)
             else:
                 SharedContext.get_instance().log(e.__class__.__name__+" has died at " + str(e.get_pos()))
-        self.cached_snapshot = None
+
+            
+
         self.entities = survived
+        self.by_type = by_type
+        self.cached_snapshot = snp
 
 class Entity(object): #base class
 
