@@ -305,18 +305,18 @@ class SharedContext(): #singleton
 
 
 
-def visibility(obs, start, valid, height, width):
+def visibility(obs, start, valid, height, width, dis):
     assert isinstance(start, Pair)
     assert isinstance(obs, set)
     i = 0
     vis = set()
     for i in range(0, width):
-        vis.update(get_line(start, Pair(0,i), obs))
-        vis.update(get_line(start, Pair(height-1, i), obs))
+        vis.update(get_line(start, Pair(0,i), obs, dis=dis))
+        vis.update(get_line(start, Pair(height-1, i), obs, dis=dis))
 
     for i in range(0, height):
-        vis.update(get_line(start, Pair(i,0), obs))
-        vis.update(get_line(start, Pair(i, width-1), obs))
+        vis.update(get_line(start, Pair(i,0), obs, dis=dis))
+        vis.update(get_line(start, Pair(i, width-1), obs, dis=dis))
 
     return vis
 
@@ -336,6 +336,8 @@ class World():
         self.cached_snapshot = None
 
         self.by_type = defaultdict(list)
+
+        self.visibility_dis = 8
 
     def add(self, e):
         assert isinstance(e, Entity)
@@ -368,7 +370,14 @@ class World():
         valid = lambda n:n.y>=0 and n.y < self.height and n.x>=0 and n.x<self.width
         visible = set()
         for pl in filter(lambda x:isinstance(x,Player), self.entities):
-            visible.update(visibility(obs, pl.get_pos(), valid, self.height, self.width))
+            visible.update(visibility(obs, pl.get_pos(), valid, self.height, self.width, self.visibility_dis))
+
+        vis_walls = set()
+        for v in visible:
+            for n in v.get_neighbors():
+                if n in obs:
+                    vis_walls.add(n)
+        visible.update(vis_walls)
         self.visible = visible
 
     def pos_in_world(self, p):
@@ -773,8 +782,19 @@ class Vision(Buff):
         world.visible_ent |= set(world.get_all_of_type(Spooker))
         self.w = world
 
-powerup_types = [Vision, Haste, Sith, Ghost]
-powerup_durations = {Vision:10, Haste:200, Sith:350, Ghost:150}
+class Lantern(Buff):
+    def apply(self):
+        world = SharedContext.get_instance().get_world()
+        self.old_dis = world.visibility_dis
+        world.visibility_dis = 16
+
+    def cleanup(self):
+        world = SharedContext.get_instance().get_world()
+        world.visibility_dis = self.old_dis
+
+
+powerup_types = [Lantern, Vision, Haste, Sith, Ghost]
+powerup_durations = {Vision:10, Haste:200, Sith:350, Ghost:150, Lantern:200}
 
 
 

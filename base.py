@@ -6,14 +6,15 @@ class Entity(object): #base class
         assert isinstance(pos, Pair)
 
         self.pos = pos
+        self.cached_pos = pos.rounded()
         self.buffs = set()
 
     def is_transparent(self):
         return True
 
     def get_pos(self):
-        return self.pos.rounded()
-
+        return self.cached_pos
+        
     def get_color_pair(self):
         return 0
 
@@ -43,6 +44,7 @@ class Entity(object): #base class
 
     def set_pos(self, p):
         self.pos = p
+        self.cached_pos = p.rounded()
 
     def is_collidable(self):
         return True
