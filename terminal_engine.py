@@ -5,7 +5,7 @@ import dungeon
 import inspect
 
 from base import *
-from buffs import *
+from util import *
 
 
 TIME_UNIT = .017
@@ -198,9 +198,13 @@ class MainController():
         st = "Enemies remaining:" + str(len(self.w.get_all_of_type(Spooker)))
         self.dc.draw(BufferedChar.from_string(st, Pair(0, self.w.width+1), 1, ColorController.get_color("black", "white")))
 
+        self.dc.draw(BufferedChar.from_string(' '*(pl.get_hp()//10), Pair(1, self.w.width+1), 1, ColorController.get_color("red", "red")))
+
         for i in range(len(buffs)):
             b = buffs[i]
-            self.dc.draw(BufferedChar.from_string(str(b), Pair(i+1,self.w.width+1), 1, ColorController.get_color("black", "white")))
+            self.dc.draw(BufferedChar.from_string(str(b), Pair(i+2,self.w.width+1), 1, ColorController.get_color("black", "white")))
+
+
 
     def tock(self):
         self.handle_input()
@@ -396,7 +400,6 @@ class World():
         self.cached_snapshot = snp
 
 
-
 class MobileEntity(Entity):
 
     def __init__(self, pos):
@@ -471,7 +474,6 @@ class MobileEntity(Entity):
 
         self.set_rom_timer(max(0, self.get_rom_timer()-1))
 
-
 class Player(MobileEntity):
 
     def __init__(self, pos):
@@ -530,7 +532,6 @@ class Player(MobileEntity):
     def is_dead(self):
         return self.hp <= 0
 
-
 class Spooker(MobileEntity):
     
     def __init__(self, pos):
@@ -580,9 +581,7 @@ class Spooker(MobileEntity):
             elif dis > 5:
                 self.move_away(pl_pos)
 
-
         self.rom_timer = max(0,self.rom_timer-1)
-
         
     def is_dead(self):
         return self.hp <= 0
@@ -791,7 +790,7 @@ def main():
         powerups = map(lambda p:Pair(p[0], p[1]), powerups)
 
         for w in wall_pos:
-            if random.random() < .99:
+            if random.random() < .97:
                 wa = Wall(w)
             else:
                 wa = BreakableWall(w)
