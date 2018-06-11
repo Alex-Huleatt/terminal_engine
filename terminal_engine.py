@@ -524,15 +524,17 @@ class MobileEntity(Entity):
 
         if self.get_pos().euclidean(pos) < min_p.euclidean(pos):
             return
-        self.try_move(self.get_pos().direction_to(min_p))
+        if min_p is not None:
+            self.try_move(self.get_pos().direction_to(min_p))
 
     def move_away(self, pos):
         max_p = None
         for n in self.get_pos().get_neighbors():
             if self.can_move(n) and (max_p is None or n.euclidean(pos) > max_p.euclidean(pos)):
                 max_p = n
+        if max_p is not None:
 
-        self.try_move(self.get_pos().direction_to(max_p))
+            self.try_move(self.get_pos().direction_to(max_p))
 
     def update(self):
         super(MobileEntity, self).update()

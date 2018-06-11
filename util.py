@@ -148,7 +148,7 @@ def get_breadth(start, finish, obs):
         for n in current.get_neighbors():
             if n in obs or n in prev:
                 continue
-            heapq.heappush(queue, (1+n.euclidean(finish), n))
+            heapq.heappush(queue, (n.euclidean(finish), n))
             prev[n]=current
             if n == finish:
                 break
