@@ -382,6 +382,9 @@ class SharedContext(): #singleton
         snp = self.get_snapshot()
         return snp[pos]
 
+    def get_world(self):
+        return self.world
+
 def get_line( p1,p2,obs,dis=8,extend_prob=.009):
     y0,x0=p1
     y1,x1=p2
@@ -793,6 +796,30 @@ class Wall(Entity):
     def get_str(self):
         return ' '
 
+class BreakableWall(Wall):
+
+    def __init__(self, pos):
+        super(BreakableWall, self).__init__(pos)
+
+        self.hp = 5
+
+    def get_str(self):
+        return '~'
+
+    def get_color_pair(self):
+        return ColorController.get_color("black","green")
+
+    def update(self):
+        ctx = SharedContext.get_instance()
+        fireballs = ctx.get_world().get_all_of_type(Fireball)
+        if any([f.get_pos() == self.get_pos() for f in fireballs]):
+            self.hp -= 1
+
+    def is_dead(self):
+        return not bool(self.hp)
+
+
+
 class Potion(Entity):
     def __init__(self, pos, bufftype, duration):
         super(Potion, self).__init__(pos)
@@ -814,10 +841,10 @@ class Potion(Entity):
         return self.applied
 
     def get_str(self):
-        return '#'
+        return 'U'
 
     def get_color_pair(self):
-        return ColorController.get_color('cyan', 'white')
+        return ColorController.get_color('black', 'white')
 
     def is_collidable(self):
         return False
@@ -873,14 +900,23 @@ class Sith(Buff):
     def cleanup(self):
         self.unit.set_base_rof(self.old_base_rof)
 
-powerup_types = [Sith, Haste, Ghost]
+class Vision(Buff):
+    def tick(self):
+        super(Vision, self).tick()
+        world = SharedContext.get_instance().get_world()
+        world.visible_ent |= set(world.get_all_of_type(Spooker))
+        self.w = world
+
+
+powerup_types = [Vision, Haste, Sith, Ghost]
+powerup_durations = {Vision:10, Haste:200, Sith:350, Ghost:100}
 
 def main():
     try:
         mc = MainController(world_height=60, world_width=180)
         player = Player(Pair(20,20))
         mc.w.add(player)
-        walls, en, powerups = dungeon.weird_dungeon(mc.w.height, mc.w.width)
+        walls, en, powerups = dungeon.weird_dungeon(mc.w.height, mc.w.width, powerup_density=.65)
         wall_pos = []
         for i in range(mc.w.height):
             for j in range(mc.w.width):
@@ -891,7 +927,11 @@ def main():
         powerups = map(lambda p:Pair(p[0], p[1]), powerups)
 
         for w in wall_pos:
-            wa = Wall(w)
+            if random.random() < .99:
+                wa = Wall(w)
+            else:
+                wa = BreakableWall(w)
+
             mc.w.add(wa)
 
         for e in en:
@@ -899,7 +939,8 @@ def main():
             mc.w.add(ene)
 
         for p in powerups:
-            pot = Potion(p, random.choice(powerup_types), 200)
+            tp = random.choice(powerup_types)
+            pot = Potion(p, tp, powerup_durations[tp])
             mc.w.add(pot)
 
         mc.dc.full_draw()
