@@ -206,17 +206,14 @@ class MainController():
             b = buffs[i]
             self.dc.draw(BufferedChar.from_string(str(b), Pair(i+2,self.w.width+1), 1, ColorController.get_color("black", "white")))
 
-
-
-
-
     def tock(self):
         self.handle_input()
-        chrs = self.w.get_draws()
+        
         self.w.update()
 
         old_vis = self.w.visible
         self.w.calc_visibility()
+        chrs = self.w.get_draws()
 
         self.dc.update(old_vis^self.w.visible) #explicitly update only the cells that changed visibility.
 
@@ -669,7 +666,7 @@ class BreakableWall(Wall):
     def __init__(self, pos):
         super(BreakableWall, self).__init__(pos)
 
-        self.hp = 5
+        self.hp = 3
 
     def get_str(self):
         return '#'
@@ -682,6 +679,9 @@ class BreakableWall(Wall):
         fireballs = ctx.get_world().get_all_of_type(Fireball)
         if any([f.get_pos() == self.get_pos() for f in fireballs]):
             self.hp -= 1
+        if self.hp == 0:
+            t = random.choice(powerup_types)
+            ctx.add_entity(Potion(self.get_pos(), t, powerup_durations[t]))
 
     def is_dead(self):
         return not bool(self.hp)
@@ -794,7 +794,7 @@ def main():
         powerups = map(lambda p:Pair(p[0], p[1]), powerups)
 
         for w in wall_pos:
-            if random.random() < .97:
+            if random.random() < .99:
                 wa = Wall(w)
             else:
                 wa = BreakableWall(w)
