@@ -1,6 +1,5 @@
 import random
 
-
 def weird_dungeon(height, width, enemy_density=.5, powerup_density = .2):
     gr = [[0]*width for i in range(height)]
     rooms = []
