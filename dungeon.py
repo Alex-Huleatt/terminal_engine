@@ -61,7 +61,6 @@ def weird_dungeon(height, width, enemy_density=.5, powerup_density = .2):
 
         py, px = random.randint(ly+1,hy-2), random.randint(lx+1, hx-2)
 
-
         power_ups.append((py, px))
 
     return gr, enemies, power_ups, rooms

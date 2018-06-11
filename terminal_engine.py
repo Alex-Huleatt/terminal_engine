@@ -4,7 +4,6 @@ from time import sleep
 import dungeon
 import inspect
 
-from base import *
 from util import *
 
 
@@ -18,7 +17,8 @@ color_map = {
 'red':curses.COLOR_RED,
 'green':curses.COLOR_GREEN,
 'yellow':curses.COLOR_YELLOW,
-'blue':curses.COLOR_BLUE
+'blue':curses.COLOR_BLUE,
+-1:-1
 }
 
 
@@ -181,7 +181,7 @@ class MainController():
         self.w = w
 
         self.dc.add_rule('vis', lambda p:p in self.w.visible, ' ', color = ColorController.get_color("white","white"))
-        self.dc.add_rule('outside', lambda p:p.y>= world_height or p.x >= world_width, ' ', color = ColorController.get_color("white", "white"))
+        self.dc.add_rule('outside', lambda p:p.y>= world_height or p.x >= world_width, ' ', color = ColorController.get_color(-1,-1))
 
         ctx = SharedContext()
         ctx.world = self.w
@@ -238,7 +238,6 @@ class MainController():
             
             for h in self.ctx.key_handlers[k]:
                 h.callback(h.key)
-
 
 class SharedContext(): #singleton
 
@@ -301,9 +300,6 @@ class SharedContext(): #singleton
 
     def get_world(self):
         return self.world   
-
-
-
 
 def visibility(obs, start, valid, height, width, dis):
     assert isinstance(start, Pair)
@@ -379,7 +375,7 @@ class World():
                 if n in obs:
                     vis_walls.add(n)
         visible.update(vis_walls)
-        self.visible = visible
+        self.visible =set(map(Entity.get_pos,self.entities)) #visible
 
     def pos_in_world(self, p):
         return p.y >= 0 and p.y < self.height and p.x >= 0 and p.x < self.width
@@ -468,8 +464,6 @@ class Entity(object): #base class
 
     def get_buffs(self):
         return self.buffs
-
-
 
 class MobileEntity(Entity):
 
@@ -607,7 +601,7 @@ class Spooker(MobileEntity):
     
     def __init__(self, pos):
         super(Spooker, self).__init__(pos)
-
+        self.moodController = SpookerMoodController(self)
         self.set_base_rom(5)
         self.rom_timer = 0
 
@@ -628,28 +622,18 @@ class Spooker(MobileEntity):
         return False 
 
     def is_collidable(self):
-        return True
+        return not isinstance(self.moodController.mood, BoredMood)
 
     def update(self):
         self.flash_timer += 1
-        ctx = SharedContext.get_instance()
-        all_pos = ctx.get_snapshot()
+
+        self.moodController.update()
+
+        all_pos = SharedContext.get_instance().get_snapshot()
 
         if any([isinstance(p,Fireball) for p in all_pos[self.get_pos()]]):
             self.hp -= 50
 
-        if self.get_pos() in ctx.get_visible_posns():
-            
-            pl = ctx.get_player_pos()[0]
-            
-            pl_pos = pl.get_pos()
-            dis = pl_pos.euclidean(self.get_pos()) 
-
-            if dis < 5 :
-                self.move_toward(pl_pos)
-
-            elif dis > 5:
-                self.move_away(pl_pos)
 
         self.rom_timer = max(0,self.rom_timer-1)
         
@@ -658,6 +642,103 @@ class Spooker(MobileEntity):
 
     def get_str(self):
         return '@'
+
+
+class SpookerMoodController(object):
+    def __init__(self, unit):
+        self.mood = BoredMood(unit)
+
+    def update(self):
+        new_mood = self.mood.transition()
+        if new_mood is not None:
+            self.mood = new_mood
+
+        self.mood.apply()
+
+
+class SpookerMood(object):
+
+    def __init__(self,unit):
+        self.unit=unit
+
+    def transition(self):
+        return None
+
+    def apply(self):
+        pass
+
+class AngryMood(SpookerMood):
+
+    def transition(self):
+        ctx = SharedContext.get_instance()
+        me = self.unit.get_pos()
+        if me not in ctx.get_visible_posns():
+            return BoredMood(self.unit)
+        pl = ctx.get_player_pos()[0].get_pos()
+        if me.euclidean(pl) > 5:
+            return SpookedMood(self.unit)
+
+    def apply(self):
+        ctx = SharedContext.get_instance()
+        pl = ctx.get_player_pos()[0].get_pos()
+        self.unit.move_toward(pl)
+
+class SpookedMood(SpookerMood):
+
+    def transition(self):
+        ctx = SharedContext.get_instance()
+        me = self.unit.get_pos()
+        if me not in ctx.get_visible_posns():
+            return BoredMood(self.unit)
+        pl = ctx.get_player_pos()[0].get_pos()
+        if me.euclidean(pl) < 5:
+            return AngryMood(self.unit)
+
+    def apply(self):
+        ctx = SharedContext.get_instance()
+        pl = ctx.get_player_pos()[0].get_pos()
+        self.unit.move_away(pl)
+
+class BoredMood(SpookerMood):
+    def __init__(self, unit):
+        super(BoredMood, self).__init__(unit)
+        self.pth = None
+        self.pthindex = 0
+
+    def transition(self):
+        ctx = SharedContext.get_instance()
+        me = self.unit.get_pos()
+        if me in ctx.get_visible_posns():
+            pl = ctx.get_player_pos()[0].get_pos()
+            if me.euclidean(pl) < 5:
+                return AngryMood(self.unit)
+            else:
+                return SpookedMood(self.unit)
+
+    def apply(self):
+        ctx = SharedContext.get_instance()
+        walls = map(Entity.get_pos, ctx.get_world().get_all_of_type(Wall))
+        me = self.unit.get_pos()
+        if self.pth is None:
+            height, width = ctx.get_world_bounds()
+            mey,mex = me
+            t = True
+            while t or Pair(y,x) in walls:
+                t=False
+                y, x = random.randint(max(1, mey-20), min(height-1, mey+20)), random.randint(max(1, mex-20), min(width-1, mex+20))
+
+            self.pth = get_breadth(me, Pair(y,x), walls)
+
+        else:
+
+            if me == self.pth[self.pthindex]:
+                self.pthindex +=1
+                if self.pthindex == len(self.pth):
+                    self.pthindex = 0
+                    self.pth.reverse()
+
+            else:
+                self.unit.move_toward(self.pth[self.pthindex])
 
 class FastSpooker(Spooker):
 
@@ -676,6 +757,8 @@ class FastSpooker(Spooker):
             else:
                 return ColorController.get_color('white', 'black')
         return ColorController.get_color('blue', 'white')
+
+
 
 class Fireball(MobileEntity):
     def __init__(self, pos, direction):
@@ -755,6 +838,8 @@ class BreakableWall(Wall):
     def is_dead(self):
         return not bool(self.hp)
 
+#----------------
+#Buffs and stuffs
 class Potion(Entity):
     def __init__(self, pos, bufftype, duration):
         super(Potion, self).__init__(pos)
@@ -853,10 +938,9 @@ class Lantern(Buff):
         world.visibility_dis = self.old_dis
 
 
+
 powerup_types = [Lantern, Vision, Haste, Sith, Ghost]
 powerup_durations = {Vision:15, Haste:200, Sith:350, Ghost:150, Lantern:200}
-
-
 
 def main():
     try:
@@ -902,5 +986,6 @@ def main():
         log = SharedContext.get_instance().log_list
 
         print 'Logged:',log
+        print get_breadth.count
 
 main()

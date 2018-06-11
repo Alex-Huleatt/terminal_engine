@@ -1,5 +1,6 @@
 import random
-
+from collections import deque
+import heapq
 UP = 0
 RIGHT = 1
 DOWN = 2
@@ -133,3 +134,33 @@ def get_line( p1,p2,obs,dis=8,extend_prob=.009):
             y += sy        
     r.append(Pair(y,x))
     return r
+
+
+def get_breadth(start, finish, obs):
+    get_breadth.count += 1
+    prev = {start:None}
+    queue = []
+
+    queue.append((0,start))
+    while len(queue) > 0:
+        v, current = heapq.heappop(queue)
+
+        for n in current.get_neighbors():
+            if n in obs or n in prev:
+                continue
+            heapq.heappush(queue, (1+n.euclidean(finish), n))
+            prev[n]=current
+            if n == finish:
+                break
+        else:
+            continue
+
+        break
+
+    pth = deque([finish])
+    while current != start and current:
+        current = prev[current]
+        pth.appendleft(current)
+    return pth
+
+get_breadth.count = 0
