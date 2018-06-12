@@ -6,6 +6,7 @@ import inspect
 from util import *
 import os
 from threading import Thread
+import sys
 
 TIME_UNIT = .017
 
@@ -659,6 +660,8 @@ class Spooker(MobileEntity):
 
         if any([isinstance(p,Fireball) for p in all_pos[self.get_pos()]]):
             self.hp -= 50
+            if self.hp == 0:
+                say('ow', v='daniel')
 
 
         self.rom_timer = max(0,self.rom_timer-1)
@@ -952,7 +955,7 @@ class Lantern(Buff):
         world = SharedContext.get_instance().get_world()
         world.visibility_dis = self.old_dis
 
-powerup_types = [Haste, Ghost, Vision, Lantern]
+powerup_types = [Haste, Ghost, Vision, Vision, Lantern]
 powerup_durations = {Vision:15, Haste:200, Sith:350, Ghost:150, Lantern:200}
 
 def say(s, v = 'veena'):
@@ -965,7 +968,7 @@ def main():
         mc = MainController(world_height=60, world_width=180)
         player = Player(Pair(30,90))
         mc.w.add(player)
-        walls, en, powerups, rooms = dungeon.weird_dungeon(mc.w.height, mc.w.width, powerup_density=.3)
+        walls, en, powerups, rooms = dungeon.weird_dungeon(mc.w.height, mc.w.width, powerup_density=.2)
         wall_pos = []
         for i in range(mc.w.height):
             for j in range(mc.w.width):
@@ -976,11 +979,10 @@ def main():
         powerups = map(lambda p:Pair(p[0], p[1]), powerups)
 
         for w in wall_pos:
-            if random.random() < .99:
+            if random.random() < .995:
                 wa = Wall(w)
             else:
                 wa = BreakableWall(w)
-
             mc.w.add(wa)
 
         for e in en:
@@ -1003,44 +1005,44 @@ def main():
         curses.endwin()
         # print 'Logged:',SharedContext.get_instance().log_list
 
+if len(sys.argv) < 2 or sys.argv[1] != 'no':
 
-story = [
-"Long ago there existed a peaceful village.", 
-"In this village lived Joe.", 
-"Joe was a simple man.", 
-"He had only a single care in the world.", 
-"His garden.", 
-"One day some angry blackholes showed up in his garden",
-"This is that story."]
+    story = [
+    "Long ago there existed a peaceful village.", 
+    "In this village lived Joe.", 
+    "Joe was a simple man.", 
+    "He had only a single care in the world.", 
+    "His garden.", 
+    "One day some angry blackholes showed up in his garden",
+    "This is that story."]
 
-flower = '''
-            .-~~-.--.
-           :         )
-     .~ ~ -.\\       /.- ~~ .
-     >       `.   .'       <
-    (         .- -.         )
-     `- -.-~  `- -'  ~-.- -'
-       (        :        )           _ _ .-:
-        ~--.    :    .--~        .-~  .-~  }
-            ~-.-^-.-~ \\_      .~  .-~   .~
-                     \\ \'     \\ '_ _ -~
-                      `.`.    //
-             . - ~ ~-.__`.`-.//
-         .-~   . - ~  }~ ~ ~-.~-.
-       .' .-~      .-~       :/~-.~-./:
-      /_~_ _ . - ~                 ~-.~-._
-                                       ~-.<
+    flower = '''
+                .-~~-.--.
+               :         )
+         .~ ~ -.\\       /.- ~~ .
+         >       `.   .'       <
+        (         .- -.         )
+         `- -.-~  `- -'  ~-.- -'
+           (        :        )           _ _ .-:
+            ~--.    :    .--~        .-~  .-~  }
+                ~-.-^-.-~ \\_      .~  .-~   .~
+                         \\ \'     \\ '_ _ -~
+                          `.`.    //
+                 . - ~ ~-.__`.`-.//
+             .-~   . - ~  }~ ~ ~-.~-.
+           .' .-~      .-~       :/~-.~-./:
+          /_~_ _ . - ~                 ~-.~-._
+                                           ~-.<
 
-'''
+    '''
 
-print flower
+    print flower
 
-for l in story:
-    print l
-    os.system('say -v veena "%s"'%l)
-    sleep(.1)
+    for l in story:
+        print l
+        os.system('say -v veena "%s"'%l)
 
-raw_input('Press enter to start')
+    raw_input('Press enter to start')
 
 main()
 
