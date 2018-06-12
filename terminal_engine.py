@@ -607,8 +607,12 @@ class Player(MobileEntity):
         self.rof_timer = max(0, self.rof_timer-1)
 
         here = SharedContext.get_instance().get_snapshot()[self.get_pos()]
-        if any([isinstance(a, Spooker) for a in here]):
-            self.hp -= 1
+        for a in here:
+            if isinstance(a, Spooker):
+                self.hp -= 1
+                curses.beep()
+                if self.hp % 30 == 0:
+                    say("uf", v='xander')
 
     def is_dead(self):
         return self.hp <= 0
@@ -951,8 +955,8 @@ class Lantern(Buff):
 powerup_types = [Haste, Ghost, Vision, Lantern]
 powerup_durations = {Vision:15, Haste:200, Sith:350, Ghost:150, Lantern:200}
 
-def say(s):
-    t = Thread(target=lambda:os.system('say -v veena "%s"'%s))
+def say(s, v = 'veena'):
+    t = Thread(target=lambda:os.system('say -v %s "%s"'%(v,s)))
     t.start()
 
 def main():
@@ -997,9 +1001,8 @@ def main():
             sleep(TIME_UNIT)
     finally:
         curses.endwin()
-        log = SharedContext.get_instance().log_list
+        # print 'Logged:',SharedContext.get_instance().log_list
 
-        print 'Logged:',log
 
 story = [
 "Long ago there existed a peaceful village.", 
@@ -1007,7 +1010,7 @@ story = [
 "Joe was a simple man.", 
 "He had only a single care in the world.", 
 "His garden.", 
-"One day some blackholes showed up in his garden",
+"One day some angry blackholes showed up in his garden",
 "This is that story."]
 
 flower = '''
@@ -1035,7 +1038,7 @@ print flower
 for l in story:
     print l
     os.system('say -v veena "%s"'%l)
-    sleep(.2)
+    sleep(.1)
 
 raw_input('Press enter to start')
 
