@@ -4,7 +4,8 @@ from time import sleep
 import dungeon
 import inspect
 from util import *
-
+import os
+from threading import Thread
 
 TIME_UNIT = .017
 
@@ -884,6 +885,7 @@ class Buff(object):
         self.duration = d
 
     def apply(self):
+        say(self.__class__.__name__)
         return 
 
     def tick(self):
@@ -902,6 +904,7 @@ class Haste(Buff):
         
 
     def apply(self):
+        super(Haste,self).apply()
         self.old_rom = self.unit.get_base_rom()
         self.unit.set_base_rom(0)
 
@@ -911,6 +914,7 @@ class Haste(Buff):
 class Ghost(Buff):
 
     def apply(self):
+        super(Ghost,self).apply()
         self.old_f = self.unit.try_move
         self.unit.try_move = self.unit.absolute_move
 
@@ -935,6 +939,7 @@ class Vision(Buff):
 
 class Lantern(Buff):
     def apply(self):
+        super(Lantern,self).apply()
         world = SharedContext.get_instance().get_world()
         self.old_dis = world.visibility_dis
         world.visibility_dis = 16
@@ -943,8 +948,12 @@ class Lantern(Buff):
         world = SharedContext.get_instance().get_world()
         world.visibility_dis = self.old_dis
 
-powerup_types = [Lantern, Vision, Haste, Ghost]
+powerup_types = [Haste, Ghost, Vision, Lantern]
 powerup_durations = {Vision:15, Haste:200, Sith:350, Ghost:150, Lantern:200}
+
+def say(s):
+    t = Thread(target=lambda:os.system('say -v veena "%s"'%s))
+    t.start()
 
 def main():
     try:
@@ -992,4 +1001,45 @@ def main():
 
         print 'Logged:',log
 
+story = [
+"Long ago there existed a peaceful village.", 
+"In this village lived Joe.", 
+"Joe was a simple man.", 
+"He had only a single care in the world.", 
+"His garden.", 
+"One day some blackholes showed up in his garden",
+"This is that story."]
+
+flower = '''
+            .-~~-.--.
+           :         )
+     .~ ~ -.\\       /.- ~~ .
+     >       `.   .'       <
+    (         .- -.         )
+     `- -.-~  `- -'  ~-.- -'
+       (        :        )           _ _ .-:
+        ~--.    :    .--~        .-~  .-~  }
+            ~-.-^-.-~ \\_      .~  .-~   .~
+                     \\ \'     \\ '_ _ -~
+                      `.`.    //
+             . - ~ ~-.__`.`-.//
+         .-~   . - ~  }~ ~ ~-.~-.
+       .' .-~      .-~       :/~-.~-./:
+      /_~_ _ . - ~                 ~-.~-._
+                                       ~-.<
+
+'''
+
+print flower
+
+for l in story:
+    print l
+    os.system('say -v veena "%s"'%l)
+    sleep(.2)
+
+raw_input('Press enter to start')
+
 main()
+
+
+
