@@ -146,7 +146,7 @@ def get_route(start, obs):
     queue.append((0,start))
     furthest, furthestv = None,None
     c = 0
-    while len(queue) > 0 and c < 25:
+    while len(queue) > 0 and c < 45:
         v, current = heapq.heappop(queue)
         c+=1
 

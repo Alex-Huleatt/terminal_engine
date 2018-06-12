@@ -3,7 +3,6 @@ from collections import defaultdict
 from time import sleep
 import dungeon
 import inspect
-
 from util import *
 
 
@@ -161,7 +160,16 @@ class DrawController():
         self.to_restore = self.drawn
         self.drawn = set()
         self.screen.refresh()
-   
+
+class TextBox():
+    def __init__(self, pos, height, width):
+        self.pos = pos
+        self.height = height
+        self.width = width
+
+        self.grid = [[' ']*width for i in range(height)]
+
+
 #--------------------
 
 class MainController():
@@ -194,7 +202,7 @@ class MainController():
     def draw_player_stats(self):
         pl = self.ctx.get_player_pos()[0]
         buffs = sorted(map(str, pl.get_buffs()))
-        hp = pl.get_hp()//10
+        hp = pl.get_hp()//30
         enemy_count = len(self.w.get_all_of_type(Spooker))
 
         st = "Enemies remaining:" + str(enemy_count)
@@ -937,6 +945,7 @@ powerup_durations = {Vision:15, Haste:200, Sith:350, Ghost:150, Lantern:200}
 
 def main():
     try:
+
         mc = MainController(world_height=60, world_width=180)
         player = Player(Pair(30,90))
         mc.w.add(player)
