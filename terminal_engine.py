@@ -375,7 +375,7 @@ class World():
                 if n in obs:
                     vis_walls.add(n)
         visible.update(vis_walls)
-        self.visible =set(map(Entity.get_pos,self.entities)) #visible
+        self.visible =visible #set(map(Entity.get_pos,self.entities))
 
     def pos_in_world(self, p):
         return p.y >= 0 and p.y < self.height and p.x >= 0 and p.x < self.width
@@ -611,6 +611,12 @@ class Spooker(MobileEntity):
 
         self.flash_timer = 0
 
+        ctx = SharedContext.get_instance()
+        walls = set(map(Entity.get_pos, ctx.get_world().get_all_of_type(Wall)))
+        height, width = ctx.get_world_bounds()
+        self.pth = get_route(pos, walls)
+
+
     def get_color_pair(self):
         player = SharedContext.get_instance().get_player_pos()[0]
         if self.get_pos().euclidean(player.get_pos()) < 2:
@@ -677,7 +683,7 @@ class AngryMood(SpookerMood):
         if me not in ctx.get_visible_posns():
             return BoredMood(self.unit)
         pl = ctx.get_player_pos()[0].get_pos()
-        if me.euclidean(pl) > 5:
+        if me.euclidean(pl) > 8:
             return SpookedMood(self.unit)
 
     def apply(self):
@@ -693,7 +699,7 @@ class SpookedMood(SpookerMood):
         if me not in ctx.get_visible_posns():
             return BoredMood(self.unit)
         pl = ctx.get_player_pos()[0].get_pos()
-        if me.euclidean(pl) < 5:
+        if me.euclidean(pl) <= 8:
             return AngryMood(self.unit)
 
     def apply(self):
@@ -704,7 +710,6 @@ class SpookedMood(SpookerMood):
 class BoredMood(SpookerMood):
     def __init__(self, unit):
         super(BoredMood, self).__init__(unit)
-        self.pth = None
         self.pthindex = 0
 
     def transition(self):
@@ -712,35 +717,21 @@ class BoredMood(SpookerMood):
         me = self.unit.get_pos()
         if me in ctx.get_visible_posns():
             pl = ctx.get_player_pos()[0].get_pos()
-            if me.euclidean(pl) < 5:
+            if me.euclidean(pl) <= 8:
                 return AngryMood(self.unit)
             else:
                 return SpookedMood(self.unit)
 
     def apply(self):
-        ctx = SharedContext.get_instance()
-        walls = map(Entity.get_pos, ctx.get_world().get_all_of_type(Wall))
-        me = self.unit.get_pos()
-        if self.pth is None:
-            height, width = ctx.get_world_bounds()
-            mey,mex = me
-            t = True
-            while t or Pair(y,x) in walls:
-                t=False
-                y, x = random.randint(max(1, mey-20), min(height-1, mey+20)), random.randint(max(1, mex-20), min(width-1, mex+20))
-
-            self.pth = get_breadth(me, Pair(y,x), walls)
+        
+        if self.unit.get_pos() == self.unit.pth[self.pthindex]:
+            self.pthindex +=1
+            if self.pthindex == len(self.unit.pth):
+                self.pthindex = 0
+                self.unit.pth.reverse()
 
         else:
-
-            if me == self.pth[self.pthindex]:
-                self.pthindex +=1
-                if self.pthindex == len(self.pth):
-                    self.pthindex = 0
-                    self.pth.reverse()
-
-            else:
-                self.unit.move_toward(self.pth[self.pthindex])
+            self.unit.move_toward(self.unit.pth[self.pthindex])
 
 class FastSpooker(Spooker):
 
@@ -988,6 +979,5 @@ def main():
         log = SharedContext.get_instance().log_list
 
         print 'Logged:',log
-        print get_breadth.count
 
 main()

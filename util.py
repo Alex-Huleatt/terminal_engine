@@ -30,7 +30,8 @@ class Pair():
         return Pair(self.y-other.y, self.x - other.x)
 
     def __eq__(self, other):
-        return (self.y,self.x)==(other.y, other.x)
+
+        return  (self.y==other.y and self.x==other.x)
 
     def __hash__(self):
         return (self.y,self.x).__hash__()
@@ -136,31 +137,37 @@ def get_line( p1,p2,obs,dis=8,extend_prob=.009):
     return r
 
 
-def get_breadth(start, finish, obs):
-    get_breadth.count += 1
+
+def get_route(start, obs):
+
     prev = {start:None}
     queue = []
 
     queue.append((0,start))
-    while len(queue) > 0:
+    furthest, furthestv = None,None
+    c = 0
+    while len(queue) > 0 and c < 25:
         v, current = heapq.heappop(queue)
+        c+=1
+
+        if furthestv is None or v < furthestv:
+            furthest, furthestv = current, v
 
         for n in current.get_neighbors():
             if n in obs or n in prev:
                 continue
-            heapq.heappush(queue, (n.euclidean(finish), n))
+
+            heapq.heappush(queue, (-n.euclidean(start), n))
             prev[n]=current
-            if n == finish:
-                break
-        else:
-            continue
 
-        break
 
-    pth = deque([finish])
-    while current != start and current:
+    assert furthest is not None
+
+    pth = deque([furthest])
+    while True:
         current = prev[current]
+        if not current:
+            break
         pth.appendleft(current)
-    return pth
 
-get_breadth.count = 0
+    return pth
