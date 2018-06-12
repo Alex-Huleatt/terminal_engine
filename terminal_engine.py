@@ -959,8 +959,13 @@ powerup_types = [Haste, Ghost, Vision, Vision, Lantern]
 powerup_durations = {Vision:15, Haste:200, Sith:350, Ghost:150, Lantern:200}
 
 def say(s, v = 'veena'):
-    t = Thread(target=lambda:os.system('say -v %s "%s"'%(v,s)))
-    t.start()
+    if say.no_sound:return
+    try:
+        t = Thread(target=lambda:os.system('say -v %s "%s"'%(v,s)))
+        t.start()
+    except:
+        say.no_sound = True
+say.no_sound = False
 
 def main():
     try:
@@ -1013,7 +1018,7 @@ if len(sys.argv) < 2 or sys.argv[1] != 'no':
     "Joe was a simple man.", 
     "He had only a single care in the world.", 
     "His garden.", 
-    "One day some angry blackholes showed up in his garden",
+    "One night some angry blackholes showed up in his garden",
     "This is that story."]
 
     flower = '''
@@ -1037,10 +1042,12 @@ if len(sys.argv) < 2 or sys.argv[1] != 'no':
     '''
 
     print flower
-
     for l in story:
         print l
-        os.system('say -v veena "%s"'%l)
+        try:
+            os.system('say -v veena "%s"'%l)
+        except:
+            pass
 
     raw_input('Press enter to start')
 
