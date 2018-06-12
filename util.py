@@ -136,8 +136,6 @@ def get_line( p1,p2,obs,dis=8,extend_prob=.009):
     r.append(Pair(y,x))
     return r
 
-
-
 def get_route(start, obs):
 
     prev = {start:None}

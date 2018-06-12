@@ -468,7 +468,12 @@ class Entity(object): #base class
 
     def receive_buff(self, buff):
         buff.apply()
-        self.buffs.add(buff)
+        for b in self.buffs:
+            if type(buff) == type(b):
+                b.set_duration(b.get_duration() + buff.get_duration())
+                break
+        else:
+            self.buffs.add(buff)
 
     def get_buffs(self):
         return self.buffs
@@ -759,8 +764,6 @@ class FastSpooker(Spooker):
                 return ColorController.get_color('white', 'black')
         return ColorController.get_color('blue', 'white')
 
-
-
 class Fireball(MobileEntity):
     def __init__(self, pos, direction):
         super(Fireball, self).__init__(pos)
@@ -787,7 +790,6 @@ class Fireball(MobileEntity):
         for h in here:
             if h.is_collidable():
                 self.ded=True
-
 
         me = self.get_pos()
 
@@ -878,6 +880,9 @@ class Buff(object):
     def get_duration(self):
         return self.duration
 
+    def set_duration(self, d):
+        self.duration = d
+
     def apply(self):
         return 
 
@@ -888,7 +893,7 @@ class Buff(object):
         return 
 
     def __str__(self):
-        return self.__class__.__name__
+        return self.__class__.__name__ + ': '+ str(self.get_duration())
 
 class Haste(Buff):
     def __init__(self, unit, duration):
@@ -938,9 +943,7 @@ class Lantern(Buff):
         world = SharedContext.get_instance().get_world()
         world.visibility_dis = self.old_dis
 
-
-
-powerup_types = [Lantern, Vision, Haste, Sith, Ghost]
+powerup_types = [Lantern, Vision, Haste, Ghost]
 powerup_durations = {Vision:15, Haste:200, Sith:350, Ghost:150, Lantern:200}
 
 def main():
