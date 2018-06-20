@@ -611,7 +611,6 @@ class Player(MobileEntity):
         for a in here:
             if isinstance(a, Spooker):
                 self.hp -= 1
-                curses.beep()
                 if self.hp % 30 == 0:
                     say("uf", v='xander')
 
@@ -646,7 +645,7 @@ class Spooker(MobileEntity):
         return ColorController.get_color('red', 'white')
 
     def is_transparent(self):
-        return False 
+        return False
 
     def is_collidable(self):
         return not isinstance(self.moodController.mood, BoredMood)
@@ -654,15 +653,14 @@ class Spooker(MobileEntity):
     def update(self):
         self.flash_timer += 1
 
-        self.moodController.update()
-
         all_pos = SharedContext.get_instance().get_snapshot()
-
         if any([isinstance(p,Fireball) for p in all_pos[self.get_pos()]]):
             self.hp -= 50
             if self.hp == 0:
                 say('ow', v='daniel')
 
+
+        self.moodController.update()
 
         self.rom_timer = max(0,self.rom_timer-1)
         
@@ -1052,6 +1050,3 @@ if len(sys.argv) < 2 or sys.argv[1] != 'no':
     raw_input('Press enter to start')
 
 main()
-
-
-
