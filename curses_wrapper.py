@@ -261,6 +261,7 @@ class DrawController():
         '''Call to restore terminal to normal.'''
         curses.endwin()
 
+'''Really simple keyboard controller. Provided bare minimum, class designed to be added to as necessary.'''
 class KeyboardController():
 
     def __init__(self, screen):
@@ -268,6 +269,10 @@ class KeyboardController():
         self.callbacks = defaultdict(set)
 
     def register_keys(self, keyset, callback):
+        '''
+        Provided an iterable of characters and a single callback function assigns the callback function to those keys. 
+        Callback should receive a single argument for which key was pressed.
+        '''
         for k in keyset:
             self.callbacks[ord(k)].add(callback)
 
@@ -286,41 +291,50 @@ class KeyboardController():
                 h(k)
 
 if __name__ == '__main__':
-    try:
-        dc = DrawController()
-        dc.init_screen()
-        dc.full_draw()
 
-        CC = ColorController
 
-        r0 = lambda p:p[0]%2 == 0 and p[1]%4 == 0
-        dc.add_rule(0, r0, '+', color=CC.get_color("green","black"))
+    def life():
+        try:
+            from time import sleep
+            dc = DrawController()
+            dc.init_screen()
+            dc.full_draw()
+            h,w = dc.size
+            CC = ColorController
+            y,x = h//2,w//2
+            active = [
+            (y,x),
+            (y,x+1),
+            (y+1,x+1),
+            (y+1,x+2),
+            (y+2,x+1)
+            ]
+            active = map(lambda p:Pair(p[0],p[1]), active)
+            while True:
+                for a in active:
+                    c = Char(a, ' ', color=CC.get_color("white","white"))
+                    dc.draw([c])
 
-        r1 = lambda p:p[0]%2 == 0 and p[1]%4 != 0
-        dc.add_rule(1, r1, '-', color=CC.get_color("green","black"))
+                dc.render()
 
-        r2 = lambda p:p[1]%4 == 0 and p[0]%2 != 0
-        dc.add_rule(2, r2, '|', color=CC.get_color("green","black"))
+                n_count = defaultdict(int)
+                for o in active:
+                    for n in o.get_neighbors(ortho=False):
+                        n_count[n]+=1
 
-        c = 0
-        h,w = dc.size
-        p = [Pair((h//2)-1, (w)//2-1)]
-        dc.render()
+                new_active = []
+                for k in n_count.keys():
+                    c = n_count[k]
+                    if c == 3 and k not in active:
+                        new_active.append(k)
+                    elif k in active and c in [2,3,4]:
+                        new_active.append(k)
 
-        kc = KeyboardController(dc.screen)
+                active = new_active
+                sleep(.001)
+        finally:
+            dc.end()
+    life()
 
-        def move(k):
-            mrp = {'w':UP, 's':DOWN, 'a':LEFT, 'd':RIGHT}
-            for i in range(4 if chr(k) in ['a','d'] else 2):
-                p[0] = p[0]+Pair.get_direction(mrp[chr(k)])
 
-        kc.register_keys(['w','s','a','d'], move)
-        while True:
-            c = Char(p[0], '@', color=CC.get_color('magenta','black'))
-            dc.draw([c])
-            kc.getkeys()
-            dc.render()
-
-    finally:
-        dc.end()
 
